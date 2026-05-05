@@ -142,9 +142,13 @@
 
     .estimate-grid {
       display: grid;
-      grid-template-columns: 32px 72px minmax(260px, 1.55fr) 72px 88px 92px 92px 74px 104px 106px 112px minmax(160px, 0.9fr);
+      grid-template-columns: 20px 52px minmax(170px, 1.5fr) 46px 62px 62px 62px 46px 70px 76px 80px;
       overflow-x: auto;
       font-size: 0.74rem;
+    }
+
+    .estimate-grid .note-col {
+      display: none;
     }
 
     .cell {
@@ -1925,7 +1929,6 @@
       const scrollX = window.scrollX;
       const scrollY = window.scrollY;
       const active = document.activeElement;
-      const activeTop = active && ["INPUT", "SELECT", "TEXTAREA"].includes(active.tagName) ? active.getBoundingClientRect().top : null;
       const selection = active && ["INPUT", "SELECT", "TEXTAREA"].includes(active.tagName) ? controlSelection(active) : null;
       const activeState = active && ["INPUT", "SELECT", "TEXTAREA"].includes(active.tagName)
         ? {
@@ -1938,6 +1941,10 @@
           selectionEnd: selection.end
         }
         : null;
+
+      if (active && $("estimateGrid").contains(active)) {
+        active.blur();
+      }
 
       renderEstimator();
       renderYearOptions();
@@ -1961,16 +1968,8 @@
           }
         }
       }
-      const restoreScroll = () => {
-        if (nextActive && activeTop !== null) {
-          window.scrollBy(0, nextActive.getBoundingClientRect().top - activeTop);
-        } else {
-          window.scrollTo(scrollX, scrollY);
-        }
-      };
-      restoreScroll();
-      requestAnimationFrame(restoreScroll);
-      setTimeout(restoreScroll, 0);
+      window.scrollTo(scrollX, scrollY);
+      requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
     }
 
     function setDates() {
