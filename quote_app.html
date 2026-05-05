@@ -1,0 +1,2093 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sobieski Proposal Builder</title>
+  <style>
+    :root {
+      --navy: #004b8d;
+      --navy-dark: #002f5f;
+      --red: #d71920;
+      --blue-input: #e7f1fb;
+      --blue-text: #003d73;
+      --formula: #f6f7f8;
+      --formula-blue: #ddeaf7;
+      --section: #edf1f5;
+      --summary: #f8e7e8;
+      --line: #b7c7d8;
+      --ink: #1d252c;
+      --muted: #5b6770;
+      --paper: #ffffff;
+      --soft: #f4f6f8;
+      --danger: #a33b35;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: #eef3f7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      font: inherit;
+    }
+
+    .app {
+      width: min(1600px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 18px 0 34px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .brand-logo {
+      width: 190px;
+      max-width: 28vw;
+      height: auto;
+      flex: 0 0 auto;
+    }
+
+    .toolbar h1 {
+      margin: 0;
+      font-size: 1.45rem;
+      color: var(--navy-dark);
+      letter-spacing: 0;
+    }
+
+    .toolbar p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .button {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #fff;
+      color: var(--navy-dark);
+      font-weight: 700;
+      padding: 0 12px;
+      cursor: pointer;
+    }
+
+    .button.primary {
+      background: var(--red);
+      border-color: var(--red);
+      color: #fff;
+    }
+
+    .button:hover {
+      filter: brightness(0.96);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(620px, 1.1fr) minmax(500px, 0.9fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .workbook,
+    .proposal-wrap {
+      background: var(--paper);
+      border: 1px solid #b5c6d6;
+      box-shadow: 0 12px 34px rgba(29, 47, 64, 0.12);
+    }
+
+    .workbook-title {
+      background: linear-gradient(90deg, var(--navy-dark), var(--navy));
+      color: white;
+      text-align: center;
+      font-weight: 800;
+      padding: 9px 12px;
+      letter-spacing: 0;
+    }
+
+    .hint {
+      padding: 8px 12px;
+      color: #666;
+      font-size: 0.86rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .estimate-grid {
+      display: grid;
+      grid-template-columns: 32px 72px minmax(260px, 1.55fr) 72px 88px 92px 92px 74px 104px 106px 112px minmax(160px, 0.9fr);
+      overflow-x: auto;
+      font-size: 0.74rem;
+    }
+
+    .cell {
+      min-height: 28px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      padding: 3px 5px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+      background: #fff;
+    }
+
+    .cell.header {
+      background: var(--navy);
+      color: #fff;
+      font-weight: 800;
+      justify-content: center;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .cell.label {
+      font-weight: 700;
+      justify-content: flex-end;
+      text-align: right;
+      color: #1f1f1f;
+    }
+
+    .cell.input-cell {
+      background: var(--blue-input);
+      color: var(--blue-text);
+      font-weight: 800;
+    }
+
+    .cell.formula {
+      background: var(--formula);
+      color: #404040;
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .cell.formula-strong {
+      background: var(--formula-blue);
+      color: var(--navy-dark);
+      font-weight: 800;
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .cell.section {
+      grid-column: 1 / -1;
+      background: var(--section);
+      color: var(--navy);
+      font-weight: 800;
+      justify-content: flex-start;
+      min-height: 28px;
+    }
+
+    .cell.summary {
+      background: #e8eef5;
+      color: var(--navy-dark);
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 0.7rem;
+    }
+
+    .cell.summary-label {
+      grid-column: 1 / 4;
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .cell.summary-value {
+      grid-column: 4 / 6;
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .cell.summary-note {
+      display: none;
+    }
+
+    .cell.summary-label-left {
+      grid-column: 1 / 4;
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .cell.summary-value-left {
+      grid-column: 4 / 6;
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .cell.summary-label-right {
+      grid-column: 6 / 10;
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .cell.summary-value-right {
+      grid-column: 10 / 12;
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .cell.visit-name {
+      grid-column: 1 / 5;
+      justify-content: flex-start;
+      text-align: left;
+      border-left: 3px solid var(--navy);
+    }
+
+    .cell.visit-date {
+      grid-column: 5 / 7;
+      justify-content: flex-start;
+      text-align: left;
+    }
+
+    .cell.visit-cost {
+      grid-column: 7 / 10;
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .cell.visit-hours {
+      grid-column: 10 / 12;
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .cell.visit-head {
+      background: var(--navy-dark);
+      color: #fff;
+      font-weight: 800;
+    }
+
+    .cell.visit-row {
+      background: #f7f9fc;
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .cell input,
+    .cell select {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font-weight: inherit;
+      min-height: 20px;
+      outline: none;
+      text-align: inherit;
+    }
+
+    .cell select {
+      cursor: pointer;
+    }
+
+    .cell.center,
+    .cell.center input,
+    .cell.center select {
+      justify-content: center;
+      text-align: center;
+    }
+
+    .cell.right,
+    .cell.right input {
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .span-2 {
+      grid-column: span 2;
+    }
+
+    .span-4 {
+      grid-column: span 4;
+    }
+
+    .span-5 {
+      grid-column: span 5;
+    }
+
+    .top-inputs {
+      display: grid;
+      grid-template-columns: 32px 126px minmax(210px, 1fr) minmax(210px, 1fr) 128px minmax(160px, 0.72fr);
+      border-bottom: 2px solid var(--line);
+      font-size: 0.86rem;
+    }
+
+    .top-inputs .cell:nth-child(6n) {
+      border-right: 0;
+    }
+
+    .year-options {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      border-bottom: 2px solid var(--line);
+      font-size: 0.78rem;
+    }
+
+    .year-options:empty {
+      display: none;
+    }
+
+    .year-options .cell {
+      min-height: 28px;
+      padding: 3px 5px;
+    }
+
+    .year-toggle {
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .year-toggle input {
+      width: auto;
+      min-height: 0;
+    }
+
+    .quote-settings {
+      display: grid;
+      grid-template-columns: 32px 126px minmax(210px, 1fr) minmax(210px, 1fr) 128px minmax(160px, 0.72fr);
+      border-bottom: 2px solid var(--line);
+      font-size: 0.86rem;
+    }
+
+    .quote-settings textarea {
+      width: 100%;
+      min-height: 64px;
+      resize: vertical;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      font-weight: inherit;
+      outline: none;
+    }
+
+    .quote-settings .button {
+      min-height: 28px;
+      padding: 0 8px;
+      font-size: 0.78rem;
+    }
+
+    .proposal {
+      padding: 22px 24px 26px;
+      background: #fff;
+      min-height: 980px;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 0.78rem;
+    }
+
+    .proposal-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 1px solid #d4d4d4;
+      padding-bottom: 10px;
+      margin-bottom: 18px;
+    }
+
+    .proposal-logo {
+      width: 150px;
+      height: auto;
+      flex: 0 0 auto;
+    }
+
+    .proposal-head h2 {
+      margin: 0 0 6px;
+      font-size: 1.28rem;
+      font-weight: 800;
+    }
+
+    .company-line {
+      color: #444;
+      font-size: 0.82rem;
+    }
+
+    .proposal-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin: 16px 0 18px;
+      font-size: 0.9rem;
+    }
+
+    .proposal-meta h3 {
+      margin: 0 0 6px;
+      color: var(--navy-dark);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    .proposal-meta p {
+      margin: 2px 0;
+      line-height: 1.34;
+    }
+
+    .proposal-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.76rem;
+    }
+
+    .proposal-table th {
+      border-top: 1px solid #808080;
+      border-bottom: 1px solid #808080;
+      padding: 7px 5px;
+      text-align: left;
+      font-weight: 800;
+      color: #333;
+    }
+
+    .proposal-table td {
+      border-bottom: 1px solid #e3e3e3;
+      padding: 6px 5px;
+      vertical-align: top;
+      line-height: 1.25;
+    }
+
+    .proposal-table .qty,
+    .proposal-table .money,
+    .proposal-table .unit {
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .section-row td {
+      border-bottom: 0;
+      padding: 12px 5px 5px;
+      color: #1f1f1f;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .subtotal-row td {
+      border-bottom: 1px solid #bcbcbc;
+      font-weight: 800;
+      padding-top: 5px;
+    }
+
+    .summary-total {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      border-top: 2px solid #6e6e6e;
+      margin-top: 12px;
+      padding-top: 10px;
+      font-weight: 800;
+      font-size: 1rem;
+    }
+
+    .visit-cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin: 12px 0 18px;
+    }
+
+    .visit-card {
+      border: 1px solid #c9d3dc;
+      background: #f8fafc;
+      padding: 9px;
+      min-width: 0;
+    }
+
+    .visit-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    .visit-card strong {
+      display: block;
+      margin-top: 4px;
+      color: var(--navy-dark);
+      font-size: 0.9rem;
+      overflow-wrap: anywhere;
+    }
+
+    .notes h3 {
+      margin: 18px 0 8px;
+      font-size: 0.96rem;
+    }
+
+    .notes ul {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 0.86rem;
+      line-height: 1.35;
+    }
+
+    .proposal-intro,
+    .proposal-terms {
+      white-space: pre-line;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      margin: 12px 0;
+    }
+
+    .year-breakdown {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 0.78rem;
+    }
+
+    .year-breakdown th,
+    .year-breakdown td {
+      border-bottom: 1px solid #e3e3e3;
+      padding: 7px 5px;
+      vertical-align: top;
+    }
+
+    .year-breakdown th {
+      text-align: left;
+      border-top: 1px solid #808080;
+      border-bottom: 1px solid #808080;
+      font-weight: 800;
+    }
+
+    .year-breakdown .money {
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .signature-lines {
+      display: grid;
+      grid-template-columns: 1fr 190px;
+      gap: 24px;
+      margin-top: 34px;
+      font-size: 0.82rem;
+    }
+
+    .signature-line {
+      border-top: 1px solid #333;
+      padding-top: 7px;
+    }
+
+    .empty {
+      color: #777;
+      font-style: italic;
+    }
+
+    @media (max-width: 1180px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        width: calc(100% - 16px);
+        padding-top: 10px;
+      }
+
+      .toolbar,
+      .proposal-meta {
+        grid-template-columns: 1fr;
+        display: grid;
+      }
+
+      .actions {
+        justify-content: stretch;
+      }
+
+      .button {
+        flex: 1 1 auto;
+      }
+
+      .proposal {
+        padding: 18px 12px;
+      }
+
+      .visit-cards {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      @page {
+        margin: 0.2in;
+      }
+
+      body {
+        background: #fff;
+        overflow: visible !important;
+      }
+
+      .app {
+        width: 100%;
+        padding: 0;
+        max-width: none;
+      }
+
+      .toolbar,
+      body:not(.print-full-form) .workbook {
+        display: none;
+      }
+
+      .layout {
+        display: block;
+      }
+
+      body.print-full-form .workbook {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        overflow: visible;
+        margin-bottom: 0.25in;
+        border: 0;
+        box-shadow: none;
+      }
+
+      body.print-full-form .workbook-title {
+        padding: 5px 8px;
+        font-size: 9pt;
+      }
+
+      body.print-full-form .hint {
+        padding: 4px 6px;
+        font-size: 6.5pt;
+      }
+
+      body.print-full-form .top-inputs,
+      body.print-full-form .quote-settings {
+        grid-template-columns: 0.2in 0.82in minmax(1.55in, 1fr) minmax(1.55in, 1fr) 0.82in minmax(0.9in, 0.6fr);
+        font-size: 6.6pt;
+      }
+
+      body.print-full-form .year-options {
+        font-size: 6.4pt;
+      }
+
+      body.print-full-form .estimate-grid {
+        width: 100%;
+        max-width: 100%;
+        overflow: visible;
+        grid-template-columns: 0.18in 0.36in minmax(1.55in, 1.8fr) 0.32in 0.36in 0.46in 0.46in 0.34in 0.5in 0.56in 0.62in;
+        font-size: 6.2pt;
+      }
+
+      body.print-full-form .estimate-grid .note-col {
+        display: none;
+      }
+
+      body.print-full-form .cell {
+        min-height: 0.16in;
+        padding: 1px 2px;
+        gap: 2px;
+        overflow: hidden;
+      }
+
+      body.print-full-form .cell.header {
+        position: static;
+      }
+
+      body.print-full-form .proposal-wrap {
+        page-break-before: always;
+      }
+
+      .proposal-wrap {
+        border: 0;
+        box-shadow: none;
+      }
+
+      .proposal {
+        min-height: 0;
+        padding: 0.25in;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="toolbar">
+      <div class="brand">
+        <img class="brand-logo" src="file:///C:/Users/13024/Downloads/Sobieski%20Fire%20Protection.png" alt="Sobieski Fire Protection">
+        <div>
+        <h1>Sobieski Quote-to-Proposal Builder</h1>
+        <p>Estimator-style device input on the left. Thomas-style proposal output on the right.</p>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="button" id="loadSample" type="button">Load sample counts</button>
+        <button class="button" id="clearCounts" type="button">Clear counts</button>
+        <button class="button" id="printFullForm" type="button">Print Full Form</button>
+        <button class="button primary" id="printProposal" type="button">Print / Save PDF</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <section class="workbook" aria-label="Estimator input">
+        <div class="workbook-title">SOBIESKI INC. - FIRE PROTECTION QUOTE TOOL | APP VERSION</div>
+        <div class="hint">BLUE = input. GRAY / LIGHT BLUE = auto-calculated. This version mirrors the current workbook service lines and workbook-style pricing logic.</div>
+
+        <div class="top-inputs" id="topInputs">
+          <div class="cell"></div><div class="cell label">Customer Name:</div><div class="cell input-cell span-2"><input id="customerName" value="Client Name"></div><div class="cell label">Date:</div><div class="cell input-cell"><input id="proposalDate" type="date"></div>
+          <div class="cell"></div><div class="cell label">Service Address:</div><div class="cell input-cell span-2"><input id="serviceAddress" value=""></div><div class="cell label">Price Level %:</div><div class="cell input-cell center"><input id="priceLevel" type="number" min="0" max="95" step="0.01" value="35"></div>
+          <div class="cell"></div><div class="cell label">City / State / Zip:</div><div class="cell input-cell span-2"><input id="cityStateZip" value=""></div><div class="cell label">Sell Rate ($/hr):</div><div class="cell input-cell center"><input id="billingRate" type="number" min="0" step="0.01" value="136.92"></div>
+          <div class="cell"></div><div class="cell label">Contact:</div><div class="cell input-cell span-2"><input id="contactName" value=""></div><div class="cell label">Sprinkler on job?</div><div class="cell input-cell center"><select id="sprinklerOnJob"><option>Yes</option><option>No</option></select></div>
+          <div class="cell"></div><div class="cell label">Phone / Email:</div><div class="cell input-cell span-2"><input id="phoneEmail" value=""></div><div class="cell label">Drive Time (hrs/visit):</div><div class="cell input-cell center"><input id="driveTime" type="number" min="0" step="0.25" value="0.5"></div>
+          <div class="cell"></div><div class="cell label">Prepared By:</div><div class="cell input-cell span-2"><input id="preparedBy" value="Shawn Zebley"></div><div class="cell label">Loaded Cost / Hr:</div><div class="cell input-cell center"><input id="loadedCost" type="number" min="0" step="0.01" value="89"></div>
+          <div class="cell"></div><div class="cell label">Rep Contact:</div><div class="cell input-cell span-2"><input id="repContact" value="SZebley@sobieskiinc.com | 302-442-0204"></div><div class="cell label">Effective Date:</div><div class="cell input-cell"><input id="effectiveDate" type="date"></div>
+          <div class="cell"></div><div class="cell label">Quote Years:</div><div class="cell input-cell center"><input id="quoteYears" type="number" min="1" max="5" step="1" value="1"></div><div class="cell label">Smoke Sensitivity:</div><div class="cell formula-strong span-2">Select by quoted year below</div>
+          <div class="cell"></div><div class="cell label">Sales Tax %:</div><div class="cell input-cell center"><input id="salesTaxRate" type="number" min="0" step="0.001" value="0"></div><div class="cell label">Tax State:</div><div class="cell formula-strong span-2" id="taxState">Not detected</div>
+        </div>
+        <div class="year-options" id="yearOptions"></div>
+        <div class="quote-settings">
+          <div class="cell"></div><div class="cell label">Saved Quotes:</div><div class="cell input-cell"><select id="savedQuotes"></select></div><div class="cell input-cell"><input id="quoteName" value="" placeholder="Quote name"></div><div class="cell input-cell center"><button class="button" id="saveQuote" type="button">Save</button></div><div class="cell input-cell center"><button class="button" id="loadQuote" type="button">Load</button></div>
+          <div class="cell"></div><div class="cell label">Proposal Intro:</div><div class="cell input-cell span-4"><textarea id="proposalIntro">Thank you for the opportunity to provide fire protection inspection services. The scope and pricing below are based on the equipment counts and assumptions shown in this quote.</textarea></div>
+          <div class="cell"></div><div class="cell label">Proposal Terms:</div><div class="cell input-cell span-4"><textarea id="proposalTerms">Pricing excludes repairs, deficiencies, parts, permits, and other work not specifically listed. Applicable taxes are estimated and may be adjusted based on final service location and taxability. Sobieski's responsibility is limited to the inspection and testing services expressly described in this proposal. Sobieski is not responsible for existing system conditions, code compliance issues, consequential damages, loss of use, or failures outside the scope of services performed.</textarea></div>
+        </div>
+
+        <div class="estimate-grid" id="estimateGrid">
+          <div class="cell header"></div>
+          <div class="cell header">Y/N</div>
+          <div class="cell header">Service Description</div>
+          <div class="cell header">Freq</div>
+          <div class="cell header">Qty</div>
+          <div class="cell header">Min / Unit</div>
+          <div class="cell header">Raw Min</div>
+          <div class="cell header">Techs</div>
+          <div class="cell header">Billed Hrs</div>
+          <div class="cell header">$/hr or Flat</div>
+          <div class="cell header">Annual Total</div>
+          <div class="cell header note-col">Notes</div>
+        </div>
+      </section>
+
+      <section class="proposal-wrap" aria-label="Proposal preview">
+        <article class="proposal" id="proposal">
+          <div class="proposal-head">
+            <img class="proposal-logo" src="file:///C:/Users/13024/Downloads/Sobieski%20Fire%20Protection.png" alt="Sobieski Fire Protection">
+            <div>
+              <h2>Fire Protection Services Proposal</h2>
+              <div class="company-line">Sobieski Fire Protection | 1325 Old Cooch's Bridge, Newark DE 19713 | 877-707-1358</div>
+            </div>
+          </div>
+
+          <div class="proposal-meta">
+            <section>
+              <h3>Customer</h3>
+              <p><strong id="pCustomer">Thomas Foods International</strong></p>
+              <p id="pAddress">2600 Oldmans Creek Rd, Swedesboro, NJ 08085</p>
+              <p>Contact: <span id="pContact">Michael Eddy</span></p>
+              <p id="pPhoneEmail">Meddy@thomasfoodsusa.com | 856-597-5637</p>
+            </section>
+            <section>
+              <h3>Agreement Details</h3>
+              <p>Effective Date: <span id="pEffective">April 16, 2026</span> | Term: <span id="pTerm">1 Year</span></p>
+              <p>Prepared by: <span id="pPrepared">Shawn Zebley</span></p>
+              <p id="pRepContact">SZebley@sobieskiinc.com | 302-442-0204</p>
+            </section>
+          </div>
+          <p class="proposal-intro" id="pProposalIntro"></p>
+
+          <div class="visit-cards">
+            <div class="visit-card"><span>Annual work visit subtotal</span><strong id="annualVisitCharge">$0.00</strong></div>
+            <div class="visit-card"><span>Combined quarterly / semi visit</span><strong id="quarterlyVisitCharge">$0.00</strong></div>
+            <div class="visit-card"><span>Other quarterly visit</span><strong id="semiVisitCharge">$0.00</strong></div>
+            <div class="visit-card"><span>Monthly visit cost</span><strong id="monthlyVisitCharge">$0.00</strong></div>
+          </div>
+
+          <table class="proposal-table">
+            <thead>
+              <tr>
+                <th style="width:7%">Qty</th>
+                <th>Service Description</th>
+                <th style="width:18%">Service Date Range</th>
+                <th style="width:12%">Frequency</th>
+                <th class="unit" style="width:12%">Unit Cost</th>
+                <th class="money" style="width:12%">Total</th>
+              </tr>
+            </thead>
+            <tbody id="proposalRows"></tbody>
+          </table>
+
+          <h3>Yearly Breakdown</h3>
+          <table class="year-breakdown">
+            <thead>
+              <tr>
+                <th style="width:12%">Year</th>
+                <th>Services Performed</th>
+                <th style="width:15%">Inspection Window</th>
+                <th class="money" style="width:14%">Subtotal</th>
+                <th class="money" style="width:12%">Tax</th>
+                <th class="money" style="width:14%">Total</th>
+              </tr>
+            </thead>
+            <tbody id="yearBreakdownRows"></tbody>
+          </table>
+
+          <div class="summary-total">
+            <span>TOTAL QUOTE SUBTOTAL</span>
+            <span id="proposalTotal">$0.00</span>
+          </div>
+          <div class="summary-total">
+            <span>ESTIMATED SALES TAX</span>
+            <span id="proposalTax">$0.00</span>
+          </div>
+          <div class="summary-total">
+            <span>TOTAL INCLUDING ESTIMATED TAX</span>
+            <span id="proposalGrandTotal">$0.00</span>
+          </div>
+
+          <section class="notes">
+            <h3>Important Notes</h3>
+            <ul id="importantNotes"></ul>
+          </section>
+          <p class="proposal-terms" id="pProposalTerms"></p>
+          <div class="signature-lines">
+            <div class="signature-line">Customer Signature</div>
+            <div class="signature-line">Date</div>
+          </div>
+        </article>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const estimatorRows = [
+      { kind: "section", title: "SPRINKLER (NFPA 25 Annual) - device rows show raw minutes; CEILING fires once at row 27" },
+      { id: "wet", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Wet Pipe System (per riser)", min: 45, techs: 1, note: "45 min/riser" },
+      { id: "dry", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Dry Pipe System (per riser)", min: 70, techs: 1, note: "70 min/riser" },
+      { id: "preAction", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Pre-Action System (per riser)", min: 90, techs: 1, note: "90 min/riser" },
+      { id: "antiFreeze", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Anti-Freeze Loop (per loop)", min: 30, techs: 1, note: "30 min/loop" },
+      { id: "standpipe", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Standpipe (per riser)", min: 3, techs: 1, formula: "standpipe", note: "Workbook formula uses qty x 3 x wet risers x dry risers" },
+      { id: "controlValve", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Control / Butterfly Valve", min: 10, techs: 1, note: "10 min each" },
+      { id: "fdc", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Fire Dept. Connection (FDC)", min: 15, techs: 1, note: "15 min each" },
+      { id: "prv", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Pressure Reducing Valve (PRV)", min: 10, techs: 1, note: "10 min each" },
+      { id: "initiatingPreAction", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Initiating Device (Pre-Action)", min: 5, techs: 1, note: "5 min each" },
+      { id: "sprinklerTiedFa", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Sprinkler tied to Fire Alarm (+)", min: 15, techs: 1, note: "Adds 15 min" },
+      { id: "mainDrain", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Main Drain", min: 10, techs: 1, note: "Editable row added in workbook" },
+      { id: "inspectorsTest", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Inspector's Test", min: 10, techs: 1, note: "Editable row added in workbook" },
+      { id: "piv", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Post Indicator Valve (PIV)", min: 10, techs: 1, note: "Editable row added in workbook" },
+      { id: "fireHose", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Fire Hose", min: 10, techs: 1, note: "Editable row added in workbook" },
+      { kind: "summary", id: "sprinklerAnnualSummary", desc: "Sprinkler Annual - Billed Hours (CEILING of rows 13-26 total)", note: "Paired sprinkler/alarm annual labor is rounded to combined 8-hour blocks, then allocated by scope." },
+      { kind: "fee", id: "sprinklerReporting", desc: "Reporting Fees", unitPrice: 40, note: "Editable sprinkler reporting fee per riser" },
+
+      { kind: "section", title: "SPRINKLER QUARTERLY VISITS - billed per visit x 3; CEILING per visit" },
+      { id: "quarterlyVisit", group: "sprinklerQuarterly", enabled: true, qty: 1, freq: "Q", desc: "Quarterly Visit (per riser)", techs: 1, formula: "quarterly", note: "Workbook row 29 billing logic" },
+      { kind: "summary", id: "sprinklerSubtotal", desc: "SPRINKLER SUBTOTAL", note: "Rows 27 + 29 + 28" },
+
+      { kind: "section", title: "FIRE ALARM (NFPA 72 Annual) - device rows show raw minutes; CEILING fires once at row 58 | 2 techs all rows" },
+      { id: "addrPanel", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Addressable Panel (FACP)", min: 60, techs: 2, note: "60 min" },
+      { id: "convPanel", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Conventional Panel (FACP)", min: 75, techs: 2, note: "75 min" },
+      { id: "addrAnnunciator", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Addressable Alarm Annunciator", min: 20, techs: 2, note: "20 min each" },
+      { id: "convAnnunciator", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Conventional Alarm Annunciator", min: 10, techs: 2, note: "10 min each" },
+      { id: "nacBooster", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "NAC Booster / Power Supply", min: 10, techs: 2, note: "10 min each" },
+      { id: "smokeAddr", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Smoke Detector - Addressable", min: 3, techs: 2, note: "3 min each" },
+      { id: "smokeConv", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Smoke Detector - Conventional", min: 5, techs: 2, note: "5 min each" },
+      { id: "heatDetector", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Heat Detector", min: 5, techs: 2, note: "5 min each" },
+      { id: "pullStation", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Manual Pull Station", min: 3, techs: 2, note: "3 min each" },
+      { id: "ductSmoke", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Duct Smoke Detector", min: 15, techs: 2, note: "15 min each" },
+      { id: "hornStrobe", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Horn / Strobe / Horn-Strobe Combo", min: 2, techs: 2, note: "2 min each" },
+      { id: "waterflow", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Waterflow Switch", min: 6, techs: 2, note: "6 min each" },
+      { id: "tamperSwitch", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Tamper Switch", min: 6, techs: 2, note: "6 min each" },
+      { id: "pressureSwitch", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Pressure Switch", min: 6, techs: 2, note: "6 min each" },
+      { id: "magHolder", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Magnetic Door Holder", min: 5, techs: 2, note: "5 min each" },
+      { id: "miscAux", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Misc. Aux Device / Module", min: 5, techs: 2, note: "5 min each" },
+      { id: "beamDetector", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Beam Detector", min: 15, techs: 2, note: "Workbook-added editable row" },
+      { id: "bell", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Bell", min: 5, techs: 2, note: "Use if not included in combo line" },
+      { id: "horn", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Horn", min: 5, techs: 2, note: "Use if not included in combo line" },
+      { id: "strobeBell", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Strobe Bell", min: 5, techs: 2, note: "Use if not included in combo line" },
+      { id: "miscAv", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Misc Audio/Visual Devices", min: 2, techs: 2, note: "Workbook-added editable row" },
+      { id: "speaker", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Speaker / Voice Evac Device", min: 5, techs: 2, note: "Separate voice evac line" },
+      { id: "firePhone", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Firefighter Telephone", min: 5, techs: 2, note: "Workbook-added editable row" },
+      { id: "batteries", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Batteries", min: 2, techs: 2, note: "Workbook-added editable row" },
+      { id: "abortButton", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Abort Button", min: 5, techs: 2, note: "Workbook-added editable row" },
+      { kind: "summary", id: "fireAlarmAnnualSummary", desc: "Fire Alarm Annual - Billed Hours (CEILING of rows 33-57 total)", note: "Shared sprinkler/alarm hours allocate proportionally when both annual scopes are present." },
+      { kind: "fee", id: "fireAlarmReporting", desc: "Reporting Fees", unitPrice: 25, note: "Editable per-panel reporting fee" },
+
+      { kind: "section", title: "SMOKE SENSITIVITY TESTING (add-on; billed separately; 1 tech)" },
+      { id: "sensitivity", group: "smokeSensitivity", enabled: true, qty: 0, freq: "2Y", desc: "Smoke Sensitivity Test", min: 8, techs: 1, formula: "sensitivity", unitPrice: 20, note: "Flat smoke sensitivity sell price is editable." },
+
+      { kind: "section", title: "FIRE ALARM SEMI-ANNUAL (if applicable)" },
+      { id: "semiAnnual", group: "fireAlarmSemi", enabled: true, qty: 1, freq: "S", desc: "Semi-Annual Inspection", techs: 1, formula: "semiAnnual", note: "Semi-annual billed in 2-hour blocks with a 2-hour minimum." },
+      { kind: "summary", id: "fireAlarmSubtotal", desc: "FIRE ALARM SUBTOTAL", note: "Rows 58 + 60 + 62 + 59" },
+
+      { kind: "section", title: "BACKFLOW PREVENTERS (NFPA 25 Annual) - combo discount auto-applies from sprinkler question" },
+      { id: "backflow", group: "backflow", enabled: true, qty: 0, freq: "A", desc: "Backflow Preventer", min: 90, comboMin: 45, techs: 2, note: "90 min standalone; 45 min with sprinkler" },
+
+      { kind: "section", title: "FIRE EXTINGUISHERS & TAMPER SEALS (Annual) - 1 tech; MIN 2-hr bill" },
+      { kind: "fee", id: "backflowReporting", desc: "Reporting Fees", unitPrice: 35, note: "Editable backflow reporting fee" },
+      { id: "extinguisher", group: "extinguisher", enabled: true, qty: 0, freq: "A", desc: "Fire Extinguisher (any type)", min: 5, techs: 1, unitPrice: 7, note: "Flat extinguisher sell price is editable." },
+      { id: "tamperSeal", group: "extinguisher", enabled: true, qty: 0, autoQty: "extinguisher", freq: "A", desc: "Tamper Seal", minLabel: "flat", techs: "", flat: 1, unitPrice: 1, note: "Qty auto-matches extinguishers; unit price is editable." },
+
+      { kind: "section", title: "EMERGENCY / EXIT LIGHTS (Annual) - 1 tech; 6 per hour; MIN 2-hr bill" },
+      { kind: "fee", id: "lightReporting", desc: "Reporting Fees", unitPrice: 35, note: "Editable light reporting fee; currently keys off extinguisher qty" },
+      { id: "emergencyLight", group: "lights", enabled: true, qty: 0, freq: "A", desc: "Emergency / Exit Light", min: 10, techs: 1, note: "10 min each; 2-hour minimum" },
+
+      { kind: "section", title: "OTHER SYSTEMS" },
+      { id: "hydrant", group: "other", enabled: true, qty: 0, freq: "A", desc: "Hydrant", minLabel: "flat", techs: 1, note: "With sprinkler: billed from labor time. Standalone: per-unit sell price." },
+      { id: "firePump", group: "other", enabled: true, qty: 0, freq: "A", desc: "Fire Pump (enter pump qty and GPM)", minLabel: "GPM:", techs: 1, formula: "firePump", gpm: 1000, note: "Workbook row 74 formula" },
+      { id: "firePumpChurn", group: "other", enabled: true, qty: 0, autoQty: "firePump", freq: "M", desc: "Fire Pump Monthly Churn Test", min: 30, techs: 1, formula: "firePumpChurn", unitPrice: 0, note: "30 raw min per pump monthly; billed in 2-hour blocks. Unit price = $/block. Service charge added per monthly trip." },
+      { kind: "fee", id: "firePumpReporting", desc: "Fire Pump Reporting Fee", unitPrice: 45, note: "Editable fire pump reporting fee" },
+      { id: "kitchenQty", group: "other", enabled: true, qty: 0, freq: "S", desc: "Kitchen Suppression System", min: 120, techs: 1, formula: "kitchenQty", unitPrice: 0, note: "Annual total labor = two semi-annual visits; summary splits 50/50 by visit." },
+      { kind: "fee", id: "kitchenReporting", desc: "Kitchen Reporting Fee", unitPrice: 45, note: "Uses direct qty or length-derived system count; unit price is editable." },
+      { id: "kitchenLength", group: "other", enabled: true, qty: 0, freq: "S", desc: "Kitchen Suppression Length (ft)", min: 120, techs: 1, formula: "kitchenLength", unitPrice: 0, note: "Feet / 20 rounded up to systems, then systems x 120 minutes." },
+      { id: "fm200", group: "other", enabled: true, qty: 0, freq: "S", desc: "FM-200 System", min: 150, techs: 1, formula: "fm200", unitPrice: 0, note: "Annual total labor = two semi-annual visits; summary splits 50/50 by visit." },
+      { kind: "fee", id: "fm200Reporting", desc: "FM-200 Reporting Fee", unitPrice: 90, note: "Editable annual FM-200 reporting fee" },
+      { kind: "summary", id: "otherSubtotal", desc: "OTHER / ADD-ONS SUBTOTAL", note: "Rows 66, 68, 71, 73:80" },
+
+      { kind: "section", title: "MULTI-YEAR INSPECTIONS (NFPA 25) - fixed billed hours per item at selected sell rate" },
+      { id: "wet5Year", group: "multiYear", enabled: true, qty: 0, freq: "5Y", desc: "Wet System - 5 Year Inspection", min: 360, techs: 2, billedFormula: () => activeQty(rowById("wet5Year")) * 6, note: "6 billed hours per system" },
+      { id: "dry5Year", group: "multiYear", enabled: true, qty: 0, freq: "5Y", desc: "Dry System - 5 Year Inspection", min: 360, techs: 2, billedFormula: () => activeQty(rowById("dry5Year")) * 6, note: "6 billed hours per system" },
+      { id: "dry3Year", group: "multiYear", enabled: true, qty: 0, freq: "3Y", desc: "Dry System - 3 Year Full Trip / Air Leakage", min: 360, techs: 2, billedFormula: () => activeQty(rowById("dry3Year")) * 6, note: "6 billed hours per system" },
+      { id: "preAction5Year", group: "multiYear", enabled: true, qty: 0, freq: "5Y", desc: "Pre-Action - 5 Year Inspection", min: 360, techs: 2, billedFormula: () => activeQty(rowById("preAction5Year")) * 6, note: "6 billed hours per system" },
+      { id: "fdc5Year", group: "multiYear", enabled: true, qty: 0, freq: "5Y", desc: "FDC - 5 Year Inspection", min: 240, techs: 2, billedFormula: () => activeQty(rowById("fdc5Year")) * 4, note: "4 billed hours per unit" },
+      { id: "backflow5Year", group: "multiYear", enabled: true, qty: 0, freq: "5Y", desc: "Backflow - 5 Year Inspection", min: 240, techs: 2, billedFormula: () => activeQty(rowById("backflow5Year")) * 4, note: "4 billed hours per unit" },
+      { id: "pump5Year", group: "multiYear", enabled: true, qty: 0, freq: "5Y", desc: "Fire Pump - 5 Year Inspection", min: 480, techs: 2, billedFormula: () => activeQty(rowById("pump5Year")) * 8, note: "8 billed hours per unit" },
+      { id: "hydrant5Year", group: "multiYear", enabled: true, qty: 0, freq: "5Y", desc: "Hydrant - 5 Year Inspection", min: 240, techs: 1, billedFormula: () => activeQty(rowById("hydrant5Year")) * 4, note: "4 billed hours per unit" },
+      { kind: "summary", id: "multiYearSubtotal", desc: "MULTI-YEAR SUBTOTAL", note: "Rows 82:89" }
+    ];
+
+    const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+    let smokeSensitivityYears = [true];
+    let billingRateManuallyEdited = false;
+    const salesTaxRates = {
+      AL: 4, AK: 0, AZ: 5.6, AR: 6.5, CA: 7.25, CO: 2.9, CT: 6.35, DE: 0, DC: 6, FL: 6,
+      GA: 4, HI: 4, ID: 6, IL: 6.25, IN: 7, IA: 6, KS: 6.5, KY: 6, LA: 5, ME: 5.5,
+      MD: 6, MA: 6.25, MI: 6, MN: 6.875, MS: 7, MO: 4.225, MT: 0, NE: 5.5, NV: 6.85,
+      NH: 0, NJ: 6.625, NM: 4.875, NY: 4, NC: 4.75, ND: 5, OH: 5.75, OK: 4.5, OR: 0,
+      PA: 6, RI: 7, SC: 6, SD: 4.2, TN: 7, TX: 6.25, UT: 4.85, VT: 6, VA: 4.3,
+      WA: 6.5, WV: 6, WI: 5, WY: 4
+    };
+
+    function $(id) {
+      return document.getElementById(id);
+    }
+
+    function num(id) {
+      const value = Number($(id).value);
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    function text(id) {
+      return ($(id).value || "").trim();
+    }
+
+    function round2(value) {
+      return Math.round((Number(value) || 0) * 100) / 100;
+    }
+
+    function roundup2(value) {
+      return Math.ceil((Number(value) || 0) * 100) / 100;
+    }
+
+    function ceilTo(value, increment) {
+      if (!value) return 0;
+      return Math.ceil(value / increment) * increment;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function isoDate(date) {
+      return date.toISOString().slice(0, 10);
+    }
+
+    function addDays(date, days) {
+      const next = new Date(date);
+      next.setDate(next.getDate() + days);
+      return next;
+    }
+
+    function formatDate(dateString) {
+      if (!dateString) return "";
+      return new Date(`${dateString}T12:00:00`).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      });
+    }
+
+    function formatMonthYear(dateString) {
+      if (!dateString) return "";
+      return new Date(`${dateString}T12:00:00`).toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric"
+      });
+    }
+
+    function getDates() {
+      const effective = text("effectiveDate");
+      const base = effective ? new Date(`${effective}T12:00:00`) : new Date();
+      return {
+        annual: formatMonthYear(isoDate(base)),
+        q: [addDays(base, 76), addDays(base, 167), addDays(base, 258)].map((date) => formatMonthYear(isoDate(date))).join("<br>"),
+        semi: formatMonthYear(isoDate(addDays(base, 167)))
+      };
+    }
+
+    function rowById(id) {
+      return estimatorRows.find((row) => row.id === id);
+    }
+
+    function dataRows(group) {
+      return estimatorRows.filter((row) => row.id && row.group === group);
+    }
+
+    function activeQty(row) {
+      if (!row || !row.enabled) return 0;
+      if (row.autoQty) return activeQty(rowById(row.autoQty));
+      return Math.max(0, Number(row.qty) || 0);
+    }
+
+    function isSprinklerOnJob() {
+      return text("sprinklerOnJob").toLowerCase() === "yes";
+    }
+
+    function loadedCost() {
+      return num("loadedCost");
+    }
+
+    function priceLevel() {
+      return Math.min(0.95, Math.max(0, num("priceLevel") / 100));
+    }
+
+    function editableUnit(rowId, fallback) {
+      const value = Number(rowById(rowId)?.unitPrice);
+      return value > 0 ? value : fallback;
+    }
+
+    function quoteYears() {
+      return Math.min(5, Math.max(1, Math.floor(num("quoteYears") || 1)));
+    }
+
+    function taxRate() {
+      return Math.max(0, num("salesTaxRate")) / 100;
+    }
+
+    function inferState() {
+      const zip = text("cityStateZip").match(/\b\d{5}(?:-\d{4})?\b/);
+      if (zip) return stateFromZip(zip[0].slice(0, 5));
+      const textValue = text("cityStateZip").toUpperCase();
+      const match = textValue.match(/(?:^|[\s,])([A-Z]{2})(?:\s+\d{5}(?:-\d{4})?|[\s,]*$)/);
+      return match && salesTaxRates[match[1]] !== undefined ? match[1] : "";
+    }
+
+    function stateFromZip(zip) {
+      const prefix = Number(zip.slice(0, 3));
+      const ranges = [
+        ["MA", 10, 27], ["RI", 28, 29], ["NH", 30, 38], ["ME", 39, 49], ["VT", 50, 59], ["CT", 60, 69],
+        ["NJ", 70, 89], ["NY", 90, 149], ["PA", 150, 196], ["DE", 197, 199], ["DC", 200, 205], ["VA", 201, 246],
+        ["MD", 206, 219], ["WV", 247, 268], ["NC", 270, 289], ["SC", 290, 299], ["GA", 300, 319], ["FL", 320, 349],
+        ["AL", 350, 369], ["TN", 370, 385], ["MS", 386, 397], ["KY", 400, 427], ["OH", 430, 459], ["IN", 460, 479],
+        ["MI", 480, 499], ["IA", 500, 528], ["WI", 530, 549], ["MN", 550, 567], ["SD", 570, 577], ["ND", 580, 588],
+        ["MT", 590, 599], ["IL", 600, 629], ["MO", 630, 658], ["KS", 660, 679], ["NE", 680, 693], ["LA", 700, 714],
+        ["AR", 716, 729], ["OK", 730, 749], ["TX", 750, 799], ["CO", 800, 816], ["WY", 820, 831], ["ID", 832, 838],
+        ["UT", 840, 847], ["AZ", 850, 865], ["NM", 870, 884], ["NV", 889, 898], ["CA", 900, 961], ["HI", 967, 968],
+        ["OR", 970, 979], ["WA", 980, 994], ["AK", 995, 999]
+      ];
+      return ranges.find(([, start, end]) => prefix >= start && prefix <= end)?.[0] || "";
+    }
+
+    function updateSalesTaxFromAddress() {
+      const state = inferState();
+      $("taxState").textContent = state ? `${state} base state rate` : "Not detected";
+      if (state) $("salesTaxRate").value = salesTaxRates[state];
+    }
+
+    function updateTaxStateDisplay() {
+      const state = inferState();
+      $("taxState").textContent = state ? `${state} base state rate` : "Not detected";
+    }
+
+    function calculatedBillingRate() {
+      return round2(loadedCost() / (1 - priceLevel()));
+    }
+
+    function syncBillingRate(force = false) {
+      if (force || !billingRateManuallyEdited) {
+        $("billingRate").value = calculatedBillingRate();
+      }
+    }
+
+    function normalizeSmokeSensitivityYears() {
+      const years = quoteYears();
+      while (smokeSensitivityYears.length < years) smokeSensitivityYears.push(false);
+      smokeSensitivityYears = smokeSensitivityYears.slice(0, years);
+    }
+
+    function smokeSensitivityYearCount() {
+      normalizeSmokeSensitivityYears();
+      return smokeSensitivityYears.filter(Boolean).length;
+    }
+
+    function rowMinutes(row) {
+      if (!row || !row.enabled) return 0;
+      const qty = activeQty(row);
+      if (!qty && !["quarterly", "semiAnnual", "sensitivity", "firePump", "firePumpChurn", "kitchenLength"].includes(row.formula)) return 0;
+      if (row.formula === "standpipe") return qty * (row.min || 0) * activeQty(rowById("wet")) * activeQty(rowById("dry"));
+      if (row.formula === "quarterly") return rowById("quarterlyVisit").enabled ? Math.round(sumRaw(dataRows("sprinklerAnnual")) / 3) : 0;
+      if (row.formula === "semiAnnual") return rowById("semiAnnual").enabled ? Math.round(sumRaw(dataRows("fireAlarmAnnual")) / 3) : 0;
+      if (row.formula === "sensitivity") return rowById("sensitivity").enabled ? activeQty(rowById("smokeAddr")) + activeQty(rowById("smokeConv")) : 0;
+      if (row.formula === "firePump") return row.enabled && qty > 0 ? Number(row.gpm) || 0 : 0;
+      if (row.formula === "firePumpChurn") return row.enabled ? qty * 30 : 0;
+      if (row.formula === "kitchenQty") return qty * 120;
+      if (row.formula === "kitchenLength") return qty ? ceilTo(qty / 20, 1) * 120 : 0;
+      if (row.formula === "fm200") return qty * 150;
+      const minutes = row.comboMin && isSprinklerOnJob() ? row.comboMin : row.min || 0;
+      return qty * minutes;
+    }
+
+    function sumRaw(rows) {
+      return rows.reduce((sum, row) => sum + rowMinutes(row), 0);
+    }
+
+    function sumQty(rows) {
+      return rows.reduce((sum, row) => sum + activeQty(row), 0);
+    }
+
+    function sellRateForInternalCost() {
+      const manualRate = num("billingRate");
+      return manualRate > 0 ? round2(manualRate) : round2(loadedCost() / (1 - priceLevel()));
+    }
+
+    function calculateWorkbook() {
+      const sprinklerRawBase = sumRaw(dataRows("sprinklerAnnual"));
+      const faRawAll = sumRaw(dataRows("fireAlarmAnnual"));
+      const noPanelSharedRaw =
+        activeQty(rowById("addrPanel")) + activeQty(rowById("convPanel")) === 0
+          ? rowMinutes(rowById("waterflow")) + rowMinutes(rowById("tamperSwitch")) + rowMinutes(rowById("pressureSwitch"))
+          : 0;
+      const sprinklerRaw = sprinklerRawBase + noPanelSharedRaw;
+      const fireAlarmRaw = faRawAll - noPanelSharedRaw;
+
+      const sprinklerCombinedBilled = sprinklerRaw || fireAlarmRaw ? ceilTo((sprinklerRaw + fireAlarmRaw) / 2 / 60, 4) * 2 : 0;
+      const sprinklerBilled = sprinklerRaw === 0 ? 0 : fireAlarmRaw > 0 ? sprinklerCombinedBilled * (sprinklerRaw / (sprinklerRaw + fireAlarmRaw)) : ceilTo(sprinklerRaw / 2 / 60, 2) * 2;
+      const fireAlarmBilled = fireAlarmRaw === 0 ? 0 : sprinklerRaw > 0 ? sprinklerCombinedBilled * (fireAlarmRaw / (sprinklerRaw + fireAlarmRaw)) : ceilTo(fireAlarmRaw / 2 / 60, 4) * 2;
+
+      const quarterlyRaw = rowMinutes(rowById("quarterlyVisit"));
+      const quarterlyBilled = rowById("quarterlyVisit").enabled && quarterlyRaw ? ceilTo(quarterlyRaw / 60, 4) : 0;
+      const sensitivityQty = rowMinutes(rowById("sensitivity"));
+      const sensitivityBilled = rowById("sensitivity").enabled && sensitivityQty ? ceilTo((sensitivityQty * 8) / 60, 1) : 0;
+      const semiRaw = rowMinutes(rowById("semiAnnual"));
+      const semiBilled = rowById("semiAnnual").enabled && semiRaw ? Math.max(2, ceilTo(semiRaw / 60, 2)) : 0;
+
+      const backflowRaw = rowMinutes(rowById("backflow"));
+      const backflowBilled = rowById("backflow").enabled && backflowRaw
+        ? (isSprinklerOnJob() ? ceilTo(backflowRaw / 2 / 60, 2) * 2 : ceilTo(backflowRaw / 2 / 60, 4) * 2)
+        : 0;
+
+      const extinguisherRaw = rowMinutes(rowById("extinguisher"));
+      const extinguisherBilled = rowById("extinguisher").enabled && extinguisherRaw ? Math.max(2, ceilTo(extinguisherRaw / 60, 2)) : 0;
+
+      const lightRaw = rowMinutes(rowById("emergencyLight"));
+      const lightBilled = rowById("emergencyLight").enabled && lightRaw ? Math.max(2, ceilTo(lightRaw / 60, 2)) : 0;
+
+      const hydrantRaw = activeQty(rowById("hydrant")) * 20;
+      const hydrantBilled = rowById("hydrant").enabled && hydrantRaw
+        ? (isSprinklerOnJob() ? ceilTo(hydrantRaw / 60, 2) : Math.max(2, ceilTo(hydrantRaw / 60, 2)))
+        : 0;
+
+      const pumpRaw = rowMinutes(rowById("firePump"));
+      const pumpBilled = rowById("firePump").enabled && activeQty(rowById("firePump")) && pumpRaw
+        ? (isSprinklerOnJob() ? ceilTo(pumpRaw / 90, 2) * 0.5 : ceilTo(pumpRaw / 75, 2))
+        : 0;
+      const pumpChurnRaw = rowMinutes(rowById("firePumpChurn"));
+      const pumpChurnBilled = rowById("firePumpChurn").enabled && pumpChurnRaw ? Math.max(2, ceilTo(pumpChurnRaw / 60, 2)) : 0;
+
+      const kitchenQtyRaw = rowMinutes(rowById("kitchenQty"));
+      const kitchenQtyBilled = rowById("kitchenQty").enabled && kitchenQtyRaw ? ceilTo((kitchenQtyRaw / 2) / 60, 4) * 2 : 0;
+      const kitchenLengthRaw = rowMinutes(rowById("kitchenLength"));
+      const kitchenLengthBilled = rowById("kitchenLength").enabled && kitchenLengthRaw ? ceilTo((kitchenLengthRaw / 2) / 60, 4) * 2 : 0;
+      const fm200Raw = rowMinutes(rowById("fm200"));
+      const fm200Billed = rowById("fm200").enabled && fm200Raw ? ceilTo((fm200Raw / 2) / 60, 4) * 2 : 0;
+
+      const multiYearBilled = {
+        wet5Year: activeQty(rowById("wet5Year")) * 6,
+        dry5Year: activeQty(rowById("dry5Year")) * 6,
+        dry3Year: activeQty(rowById("dry3Year")) * 6,
+        preAction5Year: activeQty(rowById("preAction5Year")) * 6,
+        fdc5Year: activeQty(rowById("fdc5Year")) * 4,
+        backflow5Year: activeQty(rowById("backflow5Year")) * 4,
+        pump5Year: activeQty(rowById("pump5Year")) * 8,
+        hydrant5Year: activeQty(rowById("hydrant5Year")) * 4
+      };
+      const multiYearTotalHours = Object.values(multiYearBilled).reduce((sum, value) => sum + value, 0);
+
+      const annualBilledHours =
+        sprinklerBilled + fireAlarmBilled + sensitivityBilled + semiBilled + backflowBilled + extinguisherBilled +
+        lightBilled + hydrantBilled + pumpBilled + kitchenQtyBilled + kitchenLengthBilled + fm200Billed;
+      const visitChargeAnnualHours = annualBilledHours ? ceilTo(annualBilledHours / 8, 1) : 0;
+      const visitChargePumpChurnHours = pumpChurnBilled ? ceilTo(pumpChurnBilled / 8, 1) * 12 : 0;
+      const visitChargeMultiYearHours = multiYearTotalHours ? ceilTo(multiYearTotalHours / 8, 1) : 0;
+      const visitChargeCombinedHours = (
+        quarterlyBilled > 0 || semiBilled > 0 || kitchenQtyBilled > 0 || kitchenLengthBilled > 0 || fm200Billed > 0
+      )
+        ? ceilTo((quarterlyBilled + semiBilled + kitchenQtyBilled / 2 + kitchenLengthBilled / 2 + fm200Billed / 2) / 8, 1)
+        : 0;
+      const visitChargeQuarterlyHours = quarterlyBilled > 0
+        ? ((semiBilled > 0 || kitchenQtyBilled > 0 || kitchenLengthBilled > 0 || fm200Billed > 0) ? ceilTo(quarterlyBilled / 8, 1) * 2 : ceilTo(quarterlyBilled / 8, 1) * 3)
+        : 0;
+      const totalServiceChargeHours = visitChargeAnnualHours + visitChargeCombinedHours + visitChargeQuarterlyHours + visitChargePumpChurnHours + visitChargeMultiYearHours;
+
+      const rate = sellRateForInternalCost();
+      const targetMargin = priceLevel();
+      const sensitivityUnit = editableUnit("sensitivity", 20);
+      const fireAlarmReportingUnit = editableUnit("fireAlarmReporting", 25);
+      const backflowUnit = editableUnit("backflow", 113);
+      const backflowReportingUnit = editableUnit("backflowReporting", 35);
+      const extinguisherUnit = editableUnit("extinguisher", 7);
+      const tamperUnit = editableUnit("tamperSeal", 1);
+      const lightReportingUnit = editableUnit("lightReporting", 35);
+      const pumpReportingUnit = editableUnit("firePumpReporting", 45);
+      const pumpChurnBlockPrice = editableUnit("firePumpChurn", round2(2 * loadedCost() / (1 - targetMargin)));
+      const kitchenQtyUnit = editableUnit("kitchenQty", rate);
+      const kitchenLengthUnit = editableUnit("kitchenLength", rate);
+      const kitchenReportingUnit = editableUnit("kitchenReporting", 45);
+      const fm200Unit = editableUnit("fm200", rate);
+      const fm200ReportingUnit = editableUnit("fm200Reporting", 90);
+
+      const sprinklerAnnual = sprinklerBilled * rate;
+      const sprinklerReportingUnit = editableUnit("sprinklerReporting", 40);
+      const sprinklerReporting = sumQty([rowById("wet"), rowById("dry"), rowById("preAction")]) ? sprinklerReportingUnit * sumQty([rowById("wet"), rowById("dry"), rowById("preAction")]) : 0;
+      const quarterlyAnnual = rowById("quarterlyVisit").enabled ? ((quarterlyBilled === 4 ? 3 : quarterlyBilled) * rate * 3) : 0;
+
+      const fireAlarmAnnual = fireAlarmBilled * rate;
+      const fireAlarmReporting = (activeQty(rowById("addrPanel")) + activeQty(rowById("convPanel"))) * fireAlarmReportingUnit;
+      const sensitivityTotal = sensitivityQty * sensitivityUnit;
+      const semiTotal = semiBilled * rate;
+      const backflowTotal = backflowBilled * backflowUnit;
+      const backflowReporting = activeQty(rowById("backflow")) ? activeQty(rowById("backflow")) * backflowReportingUnit : 0;
+      const extinguisherTotal = activeQty(rowById("extinguisher")) * extinguisherUnit;
+      const tamperTotal = activeQty(rowById("tamperSeal")) * tamperUnit;
+      const lightReporting = activeQty(rowById("extinguisher")) ? lightReportingUnit : 0;
+      const lightTotal = lightBilled * rate;
+      const hydrantUnit = round2((loadedCost() * (20 / 60)) / (1 - targetMargin));
+      const hydrantTotal = isSprinklerOnJob() ? hydrantBilled * rate : activeQty(rowById("hydrant")) * hydrantUnit;
+      const pumpTotal = pumpBilled * rate;
+      const pumpChurnLaborMonthly = (pumpChurnBilled / 2) * pumpChurnBlockPrice;
+      const pumpChurnServiceChargeMonthly = pumpChurnBilled ? loadedCost() : 0;
+      const pumpChurnMonthly = pumpChurnLaborMonthly + pumpChurnServiceChargeMonthly;
+      const pumpChurnTotal = pumpChurnMonthly * 12;
+      const pumpChurnServiceChargeTotal = pumpChurnServiceChargeMonthly * 12;
+      const pumpReporting = activeQty(rowById("firePump")) * pumpReportingUnit;
+      const kitchenQtyTotal = kitchenQtyBilled * kitchenQtyUnit;
+      const kitchenLengthTotal = kitchenLengthBilled * kitchenLengthUnit;
+      const kitchenReporting = kitchenSystemQty() * kitchenReportingUnit;
+      const fm200Total = fm200Billed * fm200Unit;
+      const fm200Reporting = activeQty(rowById("fm200")) * fm200ReportingUnit;
+      const multiYearTotals = Object.fromEntries(Object.entries(multiYearBilled).map(([id, billed]) => [id, billed * rate]));
+      const multiYearSubtotal = Object.values(multiYearTotals).reduce((sum, value) => sum + value, 0);
+      const multiYearVisitSubtotal = multiYearSubtotal + (visitChargeMultiYearHours * rate);
+      const otherSubtotal = backflowTotal + extinguisherTotal + lightTotal + hydrantTotal + pumpTotal + pumpChurnTotal + pumpReporting + kitchenQtyTotal + kitchenReporting + kitchenLengthTotal + fm200Total + fm200Reporting;
+
+      const annualVisitSubtotal =
+        sprinklerAnnual + fireAlarmAnnual + sensitivityTotal + semiTotal + sprinklerReporting + fireAlarmReporting + backflowReporting +
+        tamperTotal + lightReporting + otherSubtotal +
+        (annualBilledHours ? ceilTo(annualBilledHours / 8, 1) * rate : 0);
+      const combinedQuarterlySemi =
+        (quarterlyBilled > 0 || semiBilled > 0 || kitchenQtyBilled > 0 || kitchenLengthBilled > 0 || fm200Billed > 0)
+          ? (quarterlyAnnual / 3) + semiTotal + (kitchenQtyTotal / 2) + (kitchenReporting / 2) + (kitchenLengthTotal / 2) + (fm200Total / 2) + (fm200Reporting / 2) + (visitChargeCombinedHours * rate)
+          : 0;
+      const otherQuarterly = quarterlyBilled > 0 ? ((quarterlyAnnual / 3) + (ceilTo(quarterlyBilled / 8, 1) * rate)) : 0;
+      const visitPricedTotal = annualVisitSubtotal + combinedQuarterlySemi + (otherQuarterly * 2) + multiYearVisitSubtotal;
+
+      const totalLaborHours =
+        sprinklerBilled + (quarterlyBilled * 3) + fireAlarmBilled + sensitivityBilled + semiBilled + backflowBilled + extinguisherBilled +
+        lightBilled + hydrantBilled + pumpBilled + pumpChurnBilled * 12 + kitchenQtyBilled + kitchenLengthBilled + fm200Billed + multiYearTotalHours;
+      const sprinklerReportInternalCost = sumQty([rowById("wet"), rowById("dry"), rowById("preAction")]) * 25;
+      const alarmReportInternalCost = (activeQty(rowById("addrPanel")) + activeQty(rowById("convPanel"))) * 25;
+      const kitchenReportInternalCost = kitchenSystemQty() * 25;
+      const fm200ReportInternalCost = activeQty(rowById("fm200")) * 25;
+      const pumpReportInternalCost = activeQty(rowById("firePump")) * 25;
+      const backflowReportInternalCost = activeQty(rowById("backflow")) * 17;
+      const internalReportCost =
+        sprinklerReportInternalCost + alarmReportInternalCost + kitchenReportInternalCost + fm200ReportInternalCost +
+        pumpReportInternalCost + backflowReportInternalCost;
+      const internalCostAdders = internalReportCost;
+      const internalCost =
+        ((totalLaborHours + totalServiceChargeHours) * loadedCost()) + internalCostAdders;
+      const minimumSubtotal = hasMultipleServiceLines() ? 0 : 329;
+      const finalSubtotal = Math.max(minimumSubtotal, visitPricedTotal);
+
+      const noSmokeAnnualBilledHours = annualBilledHours - sensitivityBilled;
+      const noSmokeVisitChargeAnnualHours = noSmokeAnnualBilledHours ? ceilTo(noSmokeAnnualBilledHours / 8, 1) : 0;
+      const noSmokeTotalServiceChargeHours = noSmokeVisitChargeAnnualHours + visitChargeCombinedHours + visitChargeQuarterlyHours + visitChargePumpChurnHours + visitChargeMultiYearHours;
+      const noSmokeAnnualVisitSubtotal = annualVisitSubtotal - sensitivityTotal - (visitChargeAnnualHours * rate) + (noSmokeVisitChargeAnnualHours * rate);
+      const noSmokeVisitPricedTotal = noSmokeAnnualVisitSubtotal + combinedQuarterlySemi + (otherQuarterly * 2) + multiYearVisitSubtotal;
+      const noSmokeInternalCost = (((totalLaborHours - sensitivityBilled) + noSmokeTotalServiceChargeHours) * loadedCost()) + internalCostAdders;
+      const noSmokeSubtotal = Math.max(minimumSubtotal, noSmokeVisitPricedTotal);
+
+      const years = quoteYears();
+      const sensitivityYears = rowById("sensitivity").enabled && sensitivityQty ? smokeSensitivityYearCount() : 0;
+      const multiYearQuoteSubtotal = (sensitivityYears * finalSubtotal) + ((years - sensitivityYears) * noSmokeSubtotal);
+      const multiYearVisitPricedTotal = (sensitivityYears * visitPricedTotal) + ((years - sensitivityYears) * noSmokeVisitPricedTotal);
+      const multiYearInternalCost = (sensitivityYears * internalCost) + ((years - sensitivityYears) * noSmokeInternalCost);
+      const actualMargin = multiYearQuoteSubtotal ? (multiYearQuoteSubtotal - multiYearInternalCost) / multiYearQuoteSubtotal : 0;
+      const salesTax = round2(multiYearQuoteSubtotal * taxRate());
+      const quoteGrandTotal = round2(multiYearQuoteSubtotal + salesTax);
+
+      return {
+        years, sensitivityYears, multiYearQuoteSubtotal, multiYearVisitPricedTotal, multiYearInternalCost, actualMargin, salesTax, quoteGrandTotal,
+        rate, targetMargin, sprinklerRaw, fireAlarmRaw, quarterlyRaw, semiRaw, sensitivityQty, backflowRaw, extinguisherRaw,
+        lightRaw, hydrantRaw, pumpRaw, pumpChurnRaw, kitchenQtyRaw, kitchenLengthRaw, fm200Raw,
+        sprinklerBilled, fireAlarmBilled, quarterlyBilled, semiBilled, sensitivityBilled, backflowBilled, extinguisherBilled,
+        annualBilledHours, lightBilled, hydrantBilled, pumpBilled, pumpChurnBilled, kitchenQtyBilled, kitchenLengthBilled, fm200Billed, multiYearBilled, multiYearTotalHours,
+        sprinklerAnnual, sprinklerReportingUnit, sprinklerReporting, quarterlyAnnual, fireAlarmAnnual, fireAlarmReportingUnit, fireAlarmReporting,
+        sensitivityUnit, sensitivityTotal, semiTotal, backflowUnit, backflowTotal, backflowReportingUnit, backflowReporting,
+        extinguisherUnit, extinguisherTotal, tamperUnit, tamperTotal, lightReportingUnit, lightReporting, lightTotal,
+        hydrantUnit, hydrantTotal, pumpTotal, pumpChurnBlockPrice, pumpChurnLaborMonthly, pumpChurnMonthly, pumpChurnTotal, pumpChurnServiceChargeMonthly, pumpChurnServiceChargeTotal, pumpReportingUnit, pumpReporting, kitchenQtyUnit, kitchenQtyTotal, kitchenLengthUnit, kitchenLengthTotal,
+        kitchenReportingUnit, kitchenReporting, fm200Unit, fm200Total, fm200ReportingUnit,
+        fm200Reporting, multiYearTotals, multiYearSubtotal, multiYearVisitSubtotal, otherSubtotal, annualVisitSubtotal, combinedQuarterlySemi, otherQuarterly,
+        visitPricedTotal, noSmokeVisitPricedTotal, totalLaborHours, totalServiceChargeHours, internalReportCost, internalCost, noSmokeInternalCost, finalSubtotal, noSmokeSubtotal
+      };
+    }
+
+    function kitchenSystemQty() {
+      const direct = activeQty(rowById("kitchenQty"));
+      const lengthDerived = activeQty(rowById("kitchenLength")) ? ceilTo(activeQty(rowById("kitchenLength")) / 20, 1) : 0;
+      return direct || lengthDerived;
+    }
+
+    function hasMultipleServiceLines() {
+      const lines = [
+        sumQty(dataRows("sprinklerAnnual")) || rowById("quarterlyVisit").enabled && rowMinutes(rowById("quarterlyVisit")),
+        sumQty(dataRows("fireAlarmAnnual")) || activeQty(rowById("semiAnnual")) || rowById("sensitivity").enabled && rowMinutes(rowById("sensitivity")),
+        activeQty(rowById("backflow")),
+        activeQty(rowById("extinguisher")),
+        activeQty(rowById("emergencyLight")),
+        activeQty(rowById("hydrant")),
+        activeQty(rowById("firePump")),
+        kitchenSystemQty(),
+        activeQty(rowById("fm200")),
+        dataRows("multiYear").some((row) => activeQty(row))
+      ];
+      return lines.filter(Boolean).length > 1;
+    }
+
+    function lineCalc(row, totals) {
+      if (row.kind === "summary" || row.kind === "fee") return summaryCalc(row, totals);
+      const qty = activeQty(row);
+      const raw = rowMinutes(row);
+      let minutes = row.minLabel || row.min || "";
+      let billed = 0;
+      let unit = "";
+      let total = 0;
+
+      if (row.id === "quarterlyVisit") {
+        billed = totals.quarterlyBilled;
+        unit = totals.rate;
+        total = totals.quarterlyAnnual;
+      } else if (row.id === "sensitivity") {
+        billed = totals.sensitivityBilled;
+        unit = totals.sensitivityUnit;
+        total = totals.sensitivityTotal;
+      } else if (row.id === "semiAnnual") {
+        billed = totals.semiBilled;
+        unit = totals.rate;
+        total = totals.semiTotal;
+      } else if (row.id === "backflow") {
+        billed = totals.backflowBilled;
+        unit = totals.backflowUnit;
+        total = totals.backflowTotal;
+      } else if (row.id === "extinguisher") {
+        billed = totals.extinguisherBilled;
+        unit = totals.extinguisherUnit;
+        total = totals.extinguisherTotal;
+      } else if (row.id === "tamperSeal") {
+        unit = totals.tamperUnit;
+        total = totals.tamperTotal;
+      } else if (row.id === "emergencyLight") {
+        billed = totals.lightBilled;
+        unit = totals.rate;
+        total = totals.lightTotal;
+      } else if (row.id === "hydrant") {
+        billed = totals.hydrantBilled;
+        unit = isSprinklerOnJob() ? totals.rate : totals.hydrantUnit;
+        total = totals.hydrantTotal;
+      } else if (row.id === "firePump") {
+        billed = totals.pumpBilled;
+        unit = totals.rate;
+        total = totals.pumpTotal;
+      } else if (row.id === "firePumpChurn") {
+        billed = totals.pumpChurnBilled;
+        unit = totals.pumpChurnBlockPrice;
+        total = totals.pumpChurnTotal;
+      } else if (row.id === "kitchenQty") {
+        billed = totals.kitchenQtyBilled;
+        unit = totals.kitchenQtyUnit;
+        total = totals.kitchenQtyTotal;
+      } else if (row.id === "kitchenLength") {
+        billed = totals.kitchenLengthBilled;
+        unit = totals.kitchenLengthUnit;
+        total = totals.kitchenLengthTotal;
+        minutes = 120;
+      } else if (row.id === "fm200") {
+        billed = totals.fm200Billed;
+        unit = totals.fm200Unit;
+        total = totals.fm200Total;
+      } else if (row.group === "multiYear") {
+        billed = totals.multiYearBilled[row.id] || 0;
+        unit = totals.rate;
+        total = totals.multiYearTotals[row.id] || 0;
+      }
+
+      if (!total && !billed && !row.formula && !row.group.includes("multiYear")) {
+        unit = "";
+      }
+      return { qty, raw, minutes, techs: row.techs ?? "", billed, unit, total };
+    }
+
+    function summaryCalc(row, totals) {
+      const map = {
+        sprinklerAnnualSummary: { billed: totals.sprinklerBilled, unit: totals.rate, total: totals.sprinklerAnnual },
+        sprinklerReporting: { unit: totals.sprinklerReportingUnit, total: totals.sprinklerReporting },
+        sprinklerSubtotal: { total: totals.sprinklerAnnual + totals.sprinklerReporting + totals.quarterlyAnnual },
+        fireAlarmAnnualSummary: { billed: totals.fireAlarmBilled, unit: totals.rate, total: totals.fireAlarmAnnual },
+        fireAlarmReporting: { unit: totals.fireAlarmReportingUnit, total: totals.fireAlarmReporting },
+        fireAlarmSubtotal: { total: totals.fireAlarmAnnual + totals.fireAlarmReporting + totals.sensitivityTotal + totals.semiTotal },
+        backflowReporting: { unit: totals.backflowReportingUnit, total: totals.backflowReporting },
+        lightReporting: { unit: totals.lightReportingUnit, total: totals.lightReporting },
+        firePumpReporting: { unit: totals.pumpReportingUnit, total: totals.pumpReporting },
+        kitchenReporting: { unit: totals.kitchenReportingUnit, total: totals.kitchenReporting },
+        fm200Reporting: { unit: totals.fm200ReportingUnit, total: totals.fm200Reporting },
+        otherSubtotal: { total: totals.otherSubtotal },
+        multiYearSubtotal: { total: totals.multiYearSubtotal }
+      };
+      return { qty: "", raw: "", minutes: "", techs: "", billed: map[row.id]?.billed || "", unit: map[row.id]?.unit || "", total: map[row.id]?.total || 0 };
+    }
+
+    function addCell(parent, html, className) {
+      const div = document.createElement("div");
+      div.className = className;
+      div.innerHTML = html;
+      parent.appendChild(div);
+    }
+
+    function formatPlain(value) {
+      const rounded = round2(value);
+      return rounded.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    }
+
+    function formatPercent(value) {
+      return `${round2(value * 100).toFixed(2)}%`;
+    }
+
+    function formatVisitHours(visits, hours) {
+      return `${formatPlain(visits)} visits / ${formatPlain(hours)} hrs`;
+    }
+
+    function addMonths(date, months) {
+      const next = new Date(date);
+      next.setMonth(next.getMonth() + months);
+      return next;
+    }
+
+    function baseEffectiveDate() {
+      const effective = text("effectiveDate");
+      return effective ? new Date(`${effective}T12:00:00`) : new Date();
+    }
+
+    function monthYearFromDate(date) {
+      return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    }
+
+    function visitScheduleRows(totals) {
+      const base = baseEffectiveDate();
+      const rows = [];
+      const addVisit = (name, offsetMonths, cost, hours) => {
+        if (cost > 0 || hours > 0) {
+          const visitDate = addMonths(base, offsetMonths);
+          rows.push({ name, sortDate: visitDate.getTime(), date: monthYearFromDate(visitDate), cost, hours });
+        }
+      };
+
+      for (let year = 0; year < totals.years; year += 1) {
+        const yearOffset = year * 12;
+        const hasSensitivity = Boolean(smokeSensitivityYears[year]) && totals.sensitivityQty > 0;
+        const annualCost = totals.annualVisitSubtotal - (hasSensitivity ? 0 : totals.sensitivityTotal);
+        const annualHours = totals.annualBilledHours - (hasSensitivity ? 0 : totals.sensitivityBilled);
+        addVisit(`Year ${year + 1} Annual Work${hasSensitivity ? " + Sensitivity" : ""}`, yearOffset, annualCost, annualHours);
+        addVisit(`Year ${year + 1} Semi-Annual Visit`, yearOffset + 6, totals.combinedQuarterlySemi, totals.quarterlyBilled + totals.semiBilled + totals.kitchenQtyBilled / 2 + totals.kitchenLengthBilled / 2 + totals.fm200Billed / 2);
+        addVisit(`Year ${year + 1} Quarterly Visit 2`, yearOffset + 3, totals.otherQuarterly, totals.quarterlyBilled);
+        addVisit(`Year ${year + 1} Quarterly Visit 4`, yearOffset + 9, totals.otherQuarterly, totals.quarterlyBilled);
+      }
+
+      if (totals.pumpChurnMonthly > 0) {
+        rows.push({
+          name: `Monthly Fire Pump Churn (${totals.years * 12} visits)`,
+          sortDate: base.getTime(),
+          date: `${monthYearFromDate(base)} - ${monthYearFromDate(addMonths(base, totals.years * 12 - 1))}`,
+          cost: totals.pumpChurnMonthly * 12 * totals.years,
+          hours: totals.pumpChurnBilled * 12 * totals.years
+        });
+      }
+
+      return rows.sort((a, b) => a.sortDate - b.sortDate);
+    }
+
+    function renderEstimator() {
+      const totals = calculateWorkbook();
+
+      const grid = $("estimateGrid");
+      grid.querySelectorAll(".generated").forEach((node) => node.remove());
+
+      estimatorRows.forEach((row) => {
+        if (row.kind === "section") {
+          addCell(grid, row.title, "cell section generated");
+          return;
+        }
+        const calc = lineCalc(row, totals);
+        const isCalculated = row.kind === "summary" || row.kind === "fee";
+        addCell(grid, "", "cell generated");
+        addCell(
+          grid,
+          row.id && !isCalculated ? `<select data-id="${row.id}" data-key="enabled"><option ${row.enabled ? "selected" : ""}>Y</option><option ${!row.enabled ? "selected" : ""}>N</option></select>` : "",
+          `cell ${row.id && !isCalculated ? "input-cell" : "formula-strong"} center generated`
+        );
+        addCell(grid, escapeHtml(row.desc), `cell ${isCalculated ? "formula-strong" : ""} generated`);
+        addCell(grid, escapeHtml(row.freq || ""), "cell center generated");
+
+        let qtyInput = formatPlain(calc.qty || 0);
+        if (row.id && !isCalculated && !row.autoQty) {
+          qtyInput = `<input data-id="${row.id}" data-key="qty" type="number" min="0" step="1" value="${Number(row.qty) || 0}">`;
+          if (row.id === "kitchenLength") qtyInput = `<input data-id="${row.id}" data-key="qty" type="number" min="0" step="1" value="${Number(row.qty) || 0}">`;
+        }
+        addCell(grid, qtyInput, `cell ${row.id && !isCalculated && !row.autoQty ? "input-cell" : "formula"} right generated`);
+        addCell(grid, row.minLabel || (row.flat ? "flat" : formatPlain(calc.minutes || 0)), "cell formula generated");
+
+        let rawCell = formatPlain(calc.raw || 0);
+        if (row.id === "firePump") {
+          rawCell = `<input data-id="${row.id}" data-key="gpm" type="number" min="0" step="1" value="${Number(row.gpm) || 0}">`;
+        }
+        addCell(grid, rawCell, `cell ${row.id === "firePump" ? "input-cell" : "formula"} right generated`);
+        addCell(grid, calc.techs, "cell center generated");
+        addCell(grid, calc.billed === "" ? "" : formatPlain(calc.billed || 0), "cell formula-strong generated");
+        let unitCell = calc.unit === "" ? "" : money.format(calc.unit || 0);
+        let unitClass = "cell formula generated";
+        if (row.id && row.unitPrice !== undefined) {
+          unitCell = `<input data-id="${row.id}" data-key="unitPrice" type="number" min="0" step="0.01" value="${round2(calc.unit || 0)}">`;
+          unitClass = "cell input-cell right generated";
+        }
+        addCell(grid, unitCell, unitClass);
+        addCell(grid, money.format(calc.total || 0), "cell formula-strong generated");
+        addCell(grid, escapeHtml(row.note || ""), "cell note-col generated");
+      });
+
+      const summaryRows = [
+        ["Annual work visit subtotal", totals.annualVisitSubtotal, "Workbook row 93", "money"],
+        ["Semi-Annual Visit", totals.combinedQuarterlySemi, "Workbook row 94", "money"],
+        ["Other quarterly visit each", totals.otherQuarterly, "Workbook row 95", "money"],
+        ["Visit-priced total", totals.visitPricedTotal, "Rows 93 + 94 + (95 x 2)"],
+        ["Final subtotal", totals.finalSubtotal, "Workbook row 96"],
+        [`${totals.years}-year quote total`, totals.multiYearQuoteSubtotal, `${totals.sensitivityYears} year(s) include smoke sensitivity`],
+        ["Total labor hours", totals.totalLaborHours, "Workbook row 97"],
+        [`${totals.years}-year internal cost`, totals.multiYearInternalCost, "Internal cost across quoted term"],
+        ["Service charge hours", totals.totalServiceChargeHours, "Workbook row 99"],
+        [`${totals.years}-year internal report costs`, totals.internalReportCost * totals.years, "$25 sprinkler/alarm/kitchen/FM-200/fire pump; $17 backflow", "money"],
+        ["No-smoke year subtotal", totals.noSmokeSubtotal, "Workbook row 104"],
+        ["Actual margin", totals.actualMargin, "Final customer price less internal cost / final customer price"]
+      ];
+
+      addCell(grid, "SUMMARY - VISIT-BASED TOTALS", "cell summary summary-label generated");
+      addCell(grid, "", "cell summary summary-value generated");
+      addCell(grid, "", "cell summary summary-note generated");
+      const summaryValue = ([label, value, , type]) =>
+        type === "text" ? value : (label.includes("margin") ? formatPercent(value) : (typeof value === "number" && label.includes("hours") ? formatPlain(value) : money.format(value)));
+      for (let index = 0; index < summaryRows.length; index += 2) {
+        const left = summaryRows[index];
+        const right = summaryRows[index + 1];
+        addCell(grid, left[0], "cell summary summary-label-left generated");
+        addCell(grid, summaryValue(left), "cell summary summary-value-left generated");
+        addCell(grid, right ? right[0] : "", "cell summary summary-label-right generated");
+        addCell(grid, right ? summaryValue(right) : "", "cell summary summary-value-right generated");
+      }
+      addCell(grid, "VISIT", "cell summary visit-name visit-head generated");
+      addCell(grid, "APPROX. DATE", "cell summary visit-date visit-head generated");
+      addCell(grid, "CUSTOMER COST", "cell summary visit-cost visit-head generated");
+      addCell(grid, "LABOR HRS", "cell summary visit-hours visit-head generated");
+      visitScheduleRows(totals).forEach((visit) => {
+        addCell(grid, escapeHtml(visit.name), "cell summary visit-name visit-row generated");
+        addCell(grid, escapeHtml(visit.date), "cell summary visit-date visit-row generated");
+        addCell(grid, money.format(visit.cost), "cell summary visit-cost visit-row generated");
+        addCell(grid, formatPlain(visit.hours), "cell summary visit-hours visit-row generated");
+      });
+    }
+
+    function renderProposal() {
+      const totals = calculateWorkbook();
+      $("pCustomer").textContent = text("customerName") || "Customer";
+      $("pAddress").textContent = `${text("serviceAddress")}${text("cityStateZip") ? ", " + text("cityStateZip") : ""}`;
+      $("pContact").textContent = text("contactName") || "Not specified";
+      $("pPhoneEmail").textContent = text("phoneEmail");
+      $("pEffective").textContent = formatDate(text("effectiveDate"));
+      $("pTerm").textContent = `${totals.years} Year${totals.years === 1 ? "" : "s"}`;
+      $("pPrepared").textContent = text("preparedBy");
+      $("pRepContact").textContent = text("repContact");
+      $("pProposalIntro").textContent = text("proposalIntro");
+      $("pProposalTerms").textContent = text("proposalTerms");
+      const yearOneHasSensitivity = Boolean(smokeSensitivityYears[0]) && totals.sensitivityQty > 0;
+      const yearOneAnnualVisitSubtotal = totals.annualVisitSubtotal - (yearOneHasSensitivity ? 0 : totals.sensitivityTotal);
+      $("annualVisitCharge").textContent = money.format(yearOneAnnualVisitSubtotal);
+      $("quarterlyVisitCharge").textContent = money.format(totals.combinedQuarterlySemi);
+      $("semiVisitCharge").textContent = money.format(totals.otherQuarterly);
+      $("monthlyVisitCharge").textContent = money.format(totals.pumpChurnMonthly);
+      $("proposalTotal").textContent = money.format(totals.multiYearQuoteSubtotal);
+      $("proposalTax").textContent = money.format(totals.salesTax);
+      $("proposalGrandTotal").textContent = money.format(totals.quoteGrandTotal);
+
+      const tbody = $("proposalRows");
+      tbody.innerHTML = "";
+
+      const sections = [
+        { title: "FIRE SPRINKLER SYSTEMS | NFPA 25", rows: [] },
+        { title: "FIRE ALARM SYSTEMS | NFPA 72", rows: [] },
+        { title: "FIRE & DOMESTIC BACKFLOW PREVENTERS | NFPA 25", rows: [] },
+        { title: "PORTABLE FIRE EXTINGUISHERS | NFPA 10", rows: [] },
+        { title: "EMERGENCY & EXIT LIGHT INSPECTIONS | NFPA 101", rows: [] },
+        { title: "OTHER SYSTEMS / MULTI-YEAR", rows: [] }
+      ];
+      const dates = getDates();
+      const add = (index, qty, description, date, frequency, unit, total) => {
+        if (total > 0) sections[index].rows.push({ qty: String(qty), description, date, frequency, unit, total });
+      };
+      const termFrequency = (frequency) => totals.years === 1 ? frequency : `${frequency} x ${totals.years} yrs`;
+      const termTotal = (total) => total * totals.years;
+
+      add(0, sumQty(dataRows("sprinklerAnnual")), `Annual Inspection - Fire Sprinkler Systems: ${serviceSummary("sprinklerAnnual")}`, dates.annual, termFrequency("Annual"), totals.sprinklerAnnual || totals.finalSubtotal, termTotal(totals.sprinklerAnnual));
+      add(0, sumQty([rowById("wet"), rowById("dry"), rowById("preAction")]), "Sprinkler Reporting Fees", dates.annual, termFrequency("Annual"), totals.sprinklerReportingUnit, termTotal(totals.sprinklerReporting));
+      add(0, 3 * totals.years, "Quarterly Inspection - Fire Sprinkler Systems. Annual visit satisfies Q1.", dates.q, termFrequency("Quarterly"), totals.quarterlyAnnual ? totals.quarterlyAnnual / 3 : 0, termTotal(totals.quarterlyAnnual));
+
+      add(1, sumQty(dataRows("fireAlarmAnnual")), `Annual Inspection - Fire Alarm System: ${serviceSummary("fireAlarmAnnual")}`, dates.annual, termFrequency("Annual"), totals.fireAlarmAnnual || 0, termTotal(totals.fireAlarmAnnual));
+      add(1, activeQty(rowById("addrPanel")) + activeQty(rowById("convPanel")), "Fire Alarm Reporting Fees", dates.annual, termFrequency("Annual"), totals.fireAlarmReportingUnit, termTotal(totals.fireAlarmReporting));
+      add(1, totals.sensitivityQty * totals.sensitivityYears, "Smoke Sensitivity Test", dates.annual, "Selected Years", totals.sensitivityUnit, totals.sensitivityTotal * totals.sensitivityYears);
+      add(1, activeQty(rowById("semiAnnual")) * totals.years, "Semi-Annual Fire Alarm Inspection", dates.semi, termFrequency("Semi-Annual"), totals.semiTotal, termTotal(totals.semiTotal));
+
+      add(2, activeQty(rowById("backflow")), "Annual Inspection - Backflow Preventer", dates.annual, termFrequency("Annual"), totals.backflowUnit, termTotal(totals.backflowTotal));
+      add(2, activeQty(rowById("backflow")), "Backflow Reporting Fees", dates.annual, termFrequency("Annual"), totals.backflowReportingUnit, termTotal(totals.backflowReporting));
+
+      add(3, activeQty(rowById("extinguisher")), "Annual Inspection - Portable Fire Extinguishers", dates.annual, termFrequency("Annual"), totals.extinguisherUnit, termTotal(totals.extinguisherTotal));
+      add(3, activeQty(rowById("tamperSeal")), "Tamper Seals", dates.annual, termFrequency("Annual"), totals.tamperUnit, termTotal(totals.tamperTotal));
+
+      add(4, activeQty(rowById("emergencyLight")), "Annual Inspection - Emergency / Exit Lights", dates.annual, termFrequency("Annual"), totals.rate, termTotal(totals.lightTotal));
+      add(4, activeQty(rowById("extinguisher")) ? 1 : 0, "Emergency / Exit Light Reporting Fee", dates.annual, termFrequency("Annual"), totals.lightReportingUnit, termTotal(totals.lightReporting));
+
+      add(5, activeQty(rowById("hydrant")), "Annual Inspection - Fire Hydrant", dates.annual, termFrequency("Annual"), isSprinklerOnJob() ? totals.rate : totals.hydrantUnit, termTotal(totals.hydrantTotal));
+      add(5, activeQty(rowById("firePump")), "Annual Inspection - Fire Pump", dates.annual, termFrequency("Annual"), totals.rate, termTotal(totals.pumpTotal));
+      add(5, activeQty(rowById("firePump")), "Monthly Fire Pump Churn Test", dates.annual, termFrequency("Monthly"), totals.pumpChurnMonthly, termTotal(totals.pumpChurnTotal));
+      add(5, activeQty(rowById("firePump")), "Fire Pump Reporting Fee", dates.annual, termFrequency("Annual"), totals.pumpReportingUnit, termTotal(totals.pumpReporting));
+      add(5, activeQty(rowById("kitchenQty")), "Kitchen Suppression System", dates.semi, termFrequency("Semi-Annual"), totals.kitchenQtyUnit, termTotal(totals.kitchenQtyTotal));
+      add(5, kitchenSystemQty() ? kitchenSystemQty() : 0, "Kitchen Reporting Fee", dates.semi, termFrequency("Semi-Annual"), totals.kitchenReportingUnit, termTotal(totals.kitchenReporting));
+      add(5, activeQty(rowById("kitchenLength")), "Kitchen Suppression Length-Derived Scope", dates.semi, termFrequency("Semi-Annual"), totals.kitchenLengthUnit, termTotal(totals.kitchenLengthTotal));
+      add(5, activeQty(rowById("fm200")), "FM-200 System", dates.semi, termFrequency("Semi-Annual"), totals.fm200Unit, termTotal(totals.fm200Total));
+      add(5, activeQty(rowById("fm200")), "FM-200 Reporting Fee", dates.semi, termFrequency("Semi-Annual"), totals.fm200ReportingUnit, termTotal(totals.fm200Reporting));
+      Object.entries(totals.multiYearTotals).forEach(([id, total]) => {
+        const row = rowById(id);
+        add(5, activeQty(row), row.desc, dates.annual, row.freq, totals.rate, total);
+      });
+      add(5, "-", "Multi-Year Inspection Trip Service Charge", dates.annual, "As Scheduled", totals.rate, totals.multiYearVisitSubtotal - totals.multiYearSubtotal);
+
+      const adjustment = totals.multiYearQuoteSubtotal - totals.multiYearVisitPricedTotal;
+      add(5, "-", "Facility minimum / margin floor adjustment", dates.annual, "Term", adjustment, adjustment > 0 ? adjustment : 0);
+
+      if (!sections.some((section) => section.rows.length)) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty">No services selected.</td></tr>`;
+      } else {
+        sections.forEach((section) => {
+          if (!section.rows.length) return;
+          tbody.insertAdjacentHTML("beforeend", `<tr class="section-row"><td colspan="6">${escapeHtml(section.title)}</td></tr>`);
+          section.rows.forEach((line) => {
+            tbody.insertAdjacentHTML("beforeend", `
+              <tr>
+                <td class="qty">${line.qty}</td>
+                <td>${escapeHtml(line.description)}</td>
+                <td>${line.date}</td>
+                <td>${escapeHtml(line.frequency)}</td>
+                <td class="unit">${money.format(line.unit)}</td>
+                <td class="money">${money.format(line.total)}</td>
+              </tr>
+            `);
+          });
+          tbody.insertAdjacentHTML("beforeend", `<tr class="subtotal-row"><td colspan="5" class="money">Section Subtotal</td><td class="money">${money.format(section.rows.reduce((sum, line) => sum + line.total, 0))}</td></tr>`);
+        });
+      }
+
+      const yearTbody = $("yearBreakdownRows");
+      yearTbody.innerHTML = "";
+      yearlyBreakdown(totals, dates).forEach((year) => {
+        yearTbody.insertAdjacentHTML("beforeend", `
+          <tr>
+            <td>Year ${year.year}</td>
+            <td>${escapeHtml(year.services)}</td>
+            <td>${escapeHtml(year.window)}</td>
+            <td class="money">${money.format(year.subtotal)}</td>
+            <td class="money">${money.format(year.tax)}</td>
+            <td class="money">${money.format(year.total)}</td>
+          </tr>
+        `);
+      });
+
+      const notes = [
+        "Taxes, permits, parts, and repairs are not included and will be invoiced separately.",
+        `Annual workbook subtotal is ${money.format(totals.finalSubtotal)} with smoke sensitivity and ${money.format(totals.noSmokeSubtotal)} without smoke sensitivity.`,
+        `${totals.years}-year quote total is ${money.format(totals.multiYearQuoteSubtotal)}. Smoke sensitivity is included in ${totals.sensitivityYears} quoted year(s).`,
+        `Estimated sales tax uses ${formatPlain(num("salesTaxRate"))}% for ${inferState() || "the selected location"} and should be verified for the exact locality and service taxability.`,
+        `Quarterly sprinkler inspections: ${dates.q.replaceAll("<br>", ", ")}. Semi-annual alarm/kitchen/FM-200 visit target: ${dates.semi}.`
+      ];
+      $("importantNotes").innerHTML = notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("");
+    }
+
+    function serviceSummary(group) {
+      return dataRows(group)
+        .filter((row) => activeQty(row))
+        .map((row) => `${activeQty(row)} ${row.desc}`)
+        .join("; ") || "No items entered";
+    }
+
+    function yearlyBreakdown(totals, dates) {
+      const effective = text("effectiveDate");
+      const base = effective ? new Date(`${effective}T12:00:00`) : new Date();
+      const annualServices = [];
+      if (sumQty(dataRows("sprinklerAnnual"))) annualServices.push("Annual sprinkler inspection");
+      if (rowById("quarterlyVisit").enabled && totals.quarterlyAnnual) annualServices.push("Quarterly sprinkler inspections");
+      if (sumQty(dataRows("fireAlarmAnnual"))) annualServices.push("Annual fire alarm inspection");
+      if (activeQty(rowById("semiAnnual"))) annualServices.push("Semi-annual fire alarm inspection");
+      if (activeQty(rowById("backflow"))) annualServices.push("Backflow inspection");
+      if (activeQty(rowById("extinguisher"))) annualServices.push("Extinguishers and tamper seals");
+      if (activeQty(rowById("emergencyLight"))) annualServices.push("Emergency / exit lights");
+      if (activeQty(rowById("hydrant"))) annualServices.push("Hydrant inspection");
+      if (activeQty(rowById("firePump"))) annualServices.push("Fire pump inspection");
+      if (activeQty(rowById("firePump")) && rowById("firePumpChurn").enabled) annualServices.push("Monthly fire pump churn tests");
+      if (kitchenSystemQty()) annualServices.push("Kitchen suppression");
+      if (activeQty(rowById("fm200"))) annualServices.push("FM-200 system");
+      const multiYearServices = dataRows("multiYear").filter((row) => activeQty(row)).map((row) => row.desc);
+
+      return Array.from({ length: totals.years }, (_, index) => {
+        const hasSensitivity = Boolean(smokeSensitivityYears[index]);
+        const yearDate = new Date(base);
+        yearDate.setFullYear(base.getFullYear() + index);
+        const subtotal = hasSensitivity ? totals.finalSubtotal : totals.noSmokeSubtotal;
+        const tax = round2(subtotal * taxRate());
+        const services = [
+          ...annualServices,
+          ...(hasSensitivity && totals.sensitivityQty ? ["Smoke sensitivity testing"] : []),
+          ...multiYearServices
+        ];
+        return {
+          year: index + 1,
+          services: services.join("; ") || "No services selected",
+          window: yearDate.toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+          subtotal,
+          tax,
+          total: round2(subtotal + tax)
+        };
+      });
+    }
+
+    function renderYearOptions() {
+      normalizeSmokeSensitivityYears();
+      const container = $("yearOptions");
+      container.innerHTML = smokeSensitivityYears.map((enabled, index) => `
+        <label class="cell input-cell year-toggle">
+          <span>Y${index + 1} Sens.</span>
+          <input data-year-index="${index}" data-year-key="smokeSensitivity" type="checkbox" ${enabled ? "checked" : ""}>
+        </label>
+      `).join("");
+    }
+
+    function controlSelection(control) {
+      try {
+        return { start: control.selectionStart, end: control.selectionEnd };
+      } catch (error) {
+        return { start: null, end: null };
+      }
+    }
+
+    function quoteStorageKey() {
+      return "sobieskiQuoteApp.savedQuotes.v1";
+    }
+
+    function savedQuoteMap() {
+      try {
+        return JSON.parse(localStorage.getItem(quoteStorageKey())) || {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function refreshSavedQuotes() {
+      const select = $("savedQuotes");
+      const saved = savedQuoteMap();
+      const names = Object.keys(saved).sort((a, b) => a.localeCompare(b));
+      select.innerHTML = names.length
+        ? names.map((name) => `<option>${escapeHtml(name)}</option>`).join("")
+        : `<option value="">No saved quotes</option>`;
+    }
+
+    function quoteState() {
+      const fields = [
+        "customerName", "proposalDate", "serviceAddress", "priceLevel", "billingRate", "cityStateZip", "contactName", "sprinklerOnJob",
+        "phoneEmail", "driveTime", "preparedBy", "loadedCost", "repContact", "effectiveDate", "quoteYears", "salesTaxRate",
+        "proposalIntro", "proposalTerms"
+      ];
+      return {
+        fields: Object.fromEntries(fields.map((id) => [id, $(id).value])),
+        smokeSensitivityYears: [...smokeSensitivityYears],
+        billingRateManuallyEdited,
+        rows: estimatorRows.filter((row) => row.id).map((row) => ({
+          id: row.id,
+          enabled: row.enabled,
+          qty: row.qty,
+          gpm: row.gpm,
+          unitPrice: row.unitPrice
+        }))
+      };
+    }
+
+    function applyQuoteState(state) {
+      if (!state) return;
+      Object.entries(state.fields || {}).forEach(([id, value]) => {
+        if ($(id)) $(id).value = value;
+      });
+      (state.rows || []).forEach((savedRow) => {
+        const row = rowById(savedRow.id);
+        if (!row) return;
+        row.enabled = savedRow.enabled;
+        row.qty = savedRow.qty;
+        if (savedRow.gpm !== undefined) row.gpm = savedRow.gpm;
+        if (savedRow.unitPrice !== undefined) row.unitPrice = savedRow.unitPrice;
+      });
+      smokeSensitivityYears = Array.isArray(state.smokeSensitivityYears) ? [...state.smokeSensitivityYears] : [true];
+      billingRateManuallyEdited = Boolean(state.billingRateManuallyEdited);
+      normalizeSmokeSensitivityYears();
+      updateTaxStateDisplay();
+      renderAll();
+    }
+
+    function saveCurrentQuote() {
+      const fallback = text("customerName") || "Untitled Quote";
+      const name = text("quoteName") || `${fallback} - ${new Date().toLocaleDateString("en-US")}`;
+      const saved = savedQuoteMap();
+      saved[name] = quoteState();
+      localStorage.setItem(quoteStorageKey(), JSON.stringify(saved));
+      $("quoteName").value = name;
+      refreshSavedQuotes();
+      $("savedQuotes").value = name;
+    }
+
+    function loadSelectedQuote() {
+      const name = $("savedQuotes").value;
+      const saved = savedQuoteMap();
+      if (!name || !saved[name]) return;
+      $("quoteName").value = name;
+      applyQuoteState(saved[name]);
+    }
+
+    function printWithMode(fullForm) {
+      document.body.classList.toggle("print-full-form", fullForm);
+      window.print();
+      setTimeout(() => document.body.classList.remove("print-full-form"), 300);
+    }
+
+    function renderAll() {
+      const scrollX = window.scrollX;
+      const scrollY = window.scrollY;
+      const active = document.activeElement;
+      const activeTop = active && ["INPUT", "SELECT", "TEXTAREA"].includes(active.tagName) ? active.getBoundingClientRect().top : null;
+      const selection = active && ["INPUT", "SELECT", "TEXTAREA"].includes(active.tagName) ? controlSelection(active) : null;
+      const activeState = active && ["INPUT", "SELECT", "TEXTAREA"].includes(active.tagName)
+        ? {
+          id: active.id,
+          dataId: active.dataset.id,
+          dataKey: active.dataset.key,
+          yearIndex: active.dataset.yearIndex,
+          yearKey: active.dataset.yearKey,
+          selectionStart: selection.start,
+          selectionEnd: selection.end
+        }
+        : null;
+
+      renderEstimator();
+      renderYearOptions();
+      renderProposal();
+
+      let nextActive = null;
+      if (activeState) {
+        nextActive = activeState.id
+          ? document.getElementById(activeState.id)
+          : activeState.dataId
+            ? document.querySelector(`[data-id="${activeState.dataId}"][data-key="${activeState.dataKey}"]`)
+            : document.querySelector(`[data-year-index="${activeState.yearIndex}"][data-year-key="${activeState.yearKey}"]`);
+        if (nextActive) {
+          nextActive.focus({ preventScroll: true });
+          try {
+            if (activeState.selectionStart !== null) {
+              nextActive.setSelectionRange(activeState.selectionStart, activeState.selectionEnd);
+            }
+          } catch (error) {
+            // Number inputs and selects do not support text selection.
+          }
+        }
+      }
+      const restoreScroll = () => {
+        if (nextActive && activeTop !== null) {
+          window.scrollBy(0, nextActive.getBoundingClientRect().top - activeTop);
+        } else {
+          window.scrollTo(scrollX, scrollY);
+        }
+      };
+      restoreScroll();
+      requestAnimationFrame(restoreScroll);
+      setTimeout(restoreScroll, 0);
+    }
+
+    function setDates() {
+      const today = new Date();
+      $("proposalDate").value = isoDate(today);
+      $("effectiveDate").value = "2026-04-30";
+    }
+
+    function loadSampleCounts() {
+      $("customerName").value = "Sample Manufacturing Co.";
+      $("serviceAddress").value = "1842 Basin Road";
+      $("cityStateZip").value = "New Castle, DE 19720";
+      $("contactName").value = "Sample Facilities Manager";
+      $("phoneEmail").value = "facilities@example.com | 302-555-0184";
+      $("preparedBy").value = "Shawn Zebley";
+      $("repContact").value = "SZebley@sobieskiinc.com | 302-442-0204";
+      $("effectiveDate").value = "2026-04-30";
+      $("sprinklerOnJob").value = "Yes";
+      $("loadedCost").value = "89";
+      syncBillingRate(true);
+      const values = {
+        wet: 2, dry: 1, preAction: 1, antiFreeze: 1, standpipe: 1, controlValve: 8, fdc: 2, prv: 1,
+        initiatingPreAction: 2, sprinklerTiedFa: 1, mainDrain: 2, inspectorsTest: 2, piv: 1, fireHose: 1,
+        quarterlyVisit: 1, addrPanel: 1, convPanel: 0, addrAnnunciator: 1, convAnnunciator: 1, nacBooster: 2,
+        smokeAddr: 32, smokeConv: 8, heatDetector: 10, pullStation: 6, ductSmoke: 2, hornStrobe: 20, waterflow: 3,
+        tamperSwitch: 4, pressureSwitch: 2, magHolder: 2, miscAux: 3, beamDetector: 1, bell: 2, horn: 0,
+        strobeBell: 0, miscAv: 2, speaker: 4, firePhone: 0, batteries: 2, abortButton: 0, sensitivity: 1,
+        semiAnnual: 1, backflow: 2, extinguisher: 24, emergencyLight: 12, hydrant: 1, firePump: 1,
+        kitchenQty: 1, kitchenLength: 0, fm200: 1, wet5Year: 1, fdc5Year: 1
+      };
+      estimatorRows.forEach((row) => {
+        if (!row.id || row.kind) return;
+        row.enabled = Object.prototype.hasOwnProperty.call(values, row.id) ? values[row.id] > 0 : false;
+        row.qty = Object.prototype.hasOwnProperty.call(values, row.id) ? values[row.id] : 0;
+        if (row.id === "tamperSeal") row.enabled = true;
+        if (row.id === "firePump") row.gpm = 1000;
+      });
+      updateSalesTaxFromAddress();
+      renderAll();
+    }
+
+    function clearCounts() {
+      estimatorRows.forEach((row) => {
+        if (!row.id || row.kind) return;
+        row.enabled = false;
+        row.qty = 0;
+        if (row.id === "firePump") row.gpm = 1000;
+      });
+      renderAll();
+    }
+
+    let pendingRender = null;
+    function scheduleRender() {
+      clearTimeout(pendingRender);
+      pendingRender = setTimeout(renderAll, 0);
+    }
+
+    document.addEventListener("input", (event) => {
+      const input = event.target;
+      if (input.dataset.yearKey === "smokeSensitivity") {
+        smokeSensitivityYears[Number(input.dataset.yearIndex)] = input.checked;
+        renderAll();
+        return;
+      }
+      if (input.dataset.id) {
+        const row = rowById(input.dataset.id);
+        if (!row) return;
+        if (input.dataset.key === "qty") row.qty = Number(input.value) || 0;
+        if (input.dataset.key === "gpm") row.gpm = Number(input.value) || 0;
+        if (input.dataset.key === "unitPrice") row.unitPrice = Number(input.value) || 0;
+        if (input.dataset.key === "qty" || input.dataset.key === "gpm" || input.dataset.key === "unitPrice") return;
+        renderAll();
+        return;
+      }
+      if (input.id === "billingRate") billingRateManuallyEdited = true;
+      if (input.id === "loadedCost" || input.id === "priceLevel") syncBillingRate();
+      if (input.id === "cityStateZip") updateSalesTaxFromAddress();
+      renderAll();
+    });
+
+    document.addEventListener("change", (event) => {
+      const input = event.target;
+      if (input.dataset.yearKey === "smokeSensitivity") {
+        smokeSensitivityYears[Number(input.dataset.yearIndex)] = input.checked;
+        renderAll();
+        return;
+      }
+      if (input.dataset.id) {
+        const row = rowById(input.dataset.id);
+        if (!row) return;
+        if (input.dataset.key === "enabled") row.enabled = input.value === "Y";
+        if (input.dataset.key === "qty") row.qty = Number(input.value) || 0;
+        if (input.dataset.key === "gpm") row.gpm = Number(input.value) || 0;
+        if (input.dataset.key === "unitPrice") row.unitPrice = Number(input.value) || 0;
+      }
+      scheduleRender();
+    });
+
+    document.addEventListener("focusout", (event) => {
+      const input = event.target;
+      if (input.dataset.id && ["qty", "gpm", "unitPrice"].includes(input.dataset.key)) {
+        scheduleRender();
+      }
+    });
+
+    $("loadSample").addEventListener("click", loadSampleCounts);
+    $("clearCounts").addEventListener("click", clearCounts);
+    $("saveQuote").addEventListener("click", saveCurrentQuote);
+    $("loadQuote").addEventListener("click", loadSelectedQuote);
+    $("printProposal").addEventListener("click", () => printWithMode(false));
+    $("printFullForm").addEventListener("click", () => printWithMode(true));
+    window.addEventListener("afterprint", () => document.body.classList.remove("print-full-form"));
+    setDates();
+    syncBillingRate(true);
+    updateSalesTaxFromAddress();
+    refreshSavedQuotes();
+    renderAll();
+  </script>
+</body>
+</html>
