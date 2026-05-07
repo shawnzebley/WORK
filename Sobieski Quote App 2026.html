@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Sobieski Proposal Builder</title>
+<style>
+    :root {
+      --navy: #004b8d;
+      --navy-dark: #002f5f;
+      --red: #d71920;
+      --blue-input: #e7f1fb;
+      --blue-text: #003d73;
+      --formula: #f6f7f8;
+      --formula-blue: #ddeaf7;
+      --section: #edf1f5;
+      --summary: #f8e7e8;
+      --line: #b7c7d8;
+      --ink: #1d252c;
+      --muted: #5b6770;
+      --paper: #ffffff;
+      --soft: #f4f6f8;
+      --danger: #a33b35;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: #eef3f7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      overflow-anchor: none;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      font: inherit;
+    }
+
+    .app {
+      max-width: 1220px;
+      margin: 20px auto;
+      padding: 24px;
+      background: var(--paper);
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.07);
+    }
+
+    .header {
+      display: flex;
+      align-items: flex-start;
+      gap: 24px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .header-logo {
+      flex: 0 0 350px;
+    }
+
+    .header-logo svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .header-fields {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 2px 8px;
+      font-size: 15px;
+      align-items: center;
+      flex: 1;
+    }
+
+    .header-fields label {
+      font-weight: 600;
+      white-space: nowrap;
+      color: var(--navy);
+    }
+
+    .header-fields input,
+    .header-fields select {
+      width: 100%;
+      padding: 3px 6px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--blue-input);
+      font-size: 14px;
+    }
+
+    .hint {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      color: var(--muted);
+      margin: 2px 0;
+    }
+
+    .estimate-grid {
+      display: grid;
+      grid-template-columns: 14px 26px 1fr 30px repeat(6, 70px) 1fr;
+      gap: 0px;
+      border-top: 2px solid var(--navy);
+      font-size: 12px;
+    }
+
+    .cell {
+      padding: 3px 5px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      min-height: 24px;
+    }
+
+    .cell.right {
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .cell.center {
+      justify-content: center;
+      text-align: center;
+    }
+
+    .cell.formula {
+      background: var(--formula);
+      text-align: right;
+      justify-content: flex-end;
+    }
+
+    .cell.formula-strong {
+      background: var(--formula-blue);
+      font-weight: 600;
+      text-align: right;
+      justify-content: flex-end;
+    }
+
+    .cell.section {
+      grid-column: 1 / -1;
+      background: var(--section);
+      font-weight: 700;
+      color: var(--navy);
+      padding: 4px 5px;
+    }
+
+    .cell.input-cell {
+      background: var(--blue-input);
+    }
+
+    .cell input[type="number"],
+    .cell input[type="text"] {
+      width: 100%;
+      padding: 2px 4px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      font-size: 12px;
+      text-align: right;
+      background: #fff;
+    }
+
+    .cell input[type="checkbox"] {
+      margin: 0;
+    }
+
+    .note-col {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .estimate-grid .head {
+      background: var(--navy);
+      color: #fff;
+      font-weight: 700;
+      font-size: 11px;
+      text-align: center;
+      justify-content: center;
+      padding: 5px;
+    }
+
+    /* -- Summary region inside estimate grid -- */
+    .cell.summary {
+      background: var(--summary);
+    }
+
+    .cell.summary-label {
+      grid-column: 1 / -1;
+      font-weight: 700;
+      color: var(--danger);
+      padding: 6px 5px;
+    }
+
+    .cell.summary-label-left {
+      grid-column: 1 / span 5;
+      font-weight: 600;
+    }
+
+    .cell.summary-value-left {
+      grid-column: 6 / span 1;
+      font-weight: 700;
+      text-align: right;
+      justify-content: flex-end;
+    }
+
+    .cell.summary-label-right {
+      grid-column: 7 / span 4;
+      font-weight: 600;
+    }
+
+    .cell.summary-value-right {
+      grid-column: 11 / -1;
+      font-weight: 700;
+      text-align: right;
+      justify-content: flex-end;
+    }
+
+    /* Visit schedule sub-grid inside summary */
+    .cell.visit-head {
+      font-weight: 700;
+      border-top: 2px solid var(--danger);
+    }
+
+    .cell.visit-name {
+      grid-column: 1 / span 5;
+    }
+
+    .cell.visit-date {
+      grid-column: 6 / span 2;
+      text-align: center;
+      justify-content: center;
+    }
+
+    .cell.visit-cost {
+      grid-column: 8 / span 2;
+      text-align: right;
+      justify-content: flex-end;
+    }
+
+    .cell.visit-hours {
+      grid-column: 10 / -1;
+      text-align: right;
+      justify-content: flex-end;
+    }
+
+    /* Buttons */
+    .button-row {
+      display: flex;
+      gap: 8px;
+      margin: 10px 0 4px;
+    }
+
+    .button {
+      padding: 6px 14px;
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .button.primary {
+      background: var(--navy);
+      color: #fff;
+      border-color: var(--navy-dark);
+    }
+
+    .button:hover {
+      opacity: 0.85;
+    }
+
+    /* Proposal section */
+    .proposal {
+      margin-top: 30px;
+      border-top: 3px solid var(--navy);
+      padding-top: 16px;
+    }
+
+    .proposal h2 {
+      color: var(--navy);
+      font-size: 20px;
+      margin: 0 0 12px;
+    }
+
+    .proposal table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .proposal th {
+      background: var(--navy);
+      color: #fff;
+      padding: 6px 8px;
+      text-align: left;
+    }
+
+    .proposal td {
+      padding: 5px 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .proposal td.money,
+    .proposal td.unit {
+      text-align: right;
+    }
+
+    .proposal td.qty {
+      text-align: center;
+    }
+
+    .proposal .section-row td {
+      background: var(--section);
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .proposal .subtotal-row td {
+      background: var(--soft);
+      font-weight: 600;
+    }
+
+    .proposal .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 20px;
+    }
+
+    .proposal-totals {
+      margin-top: 12px;
+      font-size: 14px;
+    }
+
+    .proposal-totals .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+    }
+
+    .proposal-totals .row.grand {
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--navy);
+      border-top: 2px solid var(--navy);
+      padding-top: 6px;
+      margin-top: 4px;
+    }
+
+    .proposal-totals .important-notes {
+      margin-top: 16px;
+      padding: 10px 14px;
+      background: #fff8e6;
+      border-left: 4px solid #e6b800;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .important-notes ul {
+      margin: 4px 0 0 16px;
+      padding: 0;
+    }
+
+    .year-options {
+      display: flex;
+      gap: 10px;
+      margin: 4px 0 4px 8px;
+    }
+
+    .year-toggle {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 11px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .saved-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin: 6px 0 12px;
+    }
+
+    .saved-row select,
+    .saved-row input {
+      padding: 4px 6px;
+      font-size: 13px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+    }
+
+    .saved-row select {
+      min-width: 140px;
+    }
+
+    /* Print */
+    .print-only {
+      display: none;
+    }
+
+    @media print {
+      html {
+        background: #fff;
+      }
+
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .app {
+        box-shadow: none;
+        margin: 0;
+        padding: 12px;
+      }
+
+      .estimate-grid,
+      .button-row,
+      .saved-row,
+      .year-options,
+      .hint {
+        display: none !important;
+      }
+
+      .proposal {
+        page-break-before: avoid;
+      }
+
+      .print-only {
+        display: block !important;
+      }
+
+      /* Full-form print mode shows the estimate grid too */
+      .print-full-form .estimate-grid {
+        display: grid !important;
+        page-break-after: always;
+      }
+
+      /* hide input decorations in print */
+      .cell input[type="number"],
+      .cell input[type="text"] {
+        border: none;
+        background: transparent;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-logo">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 240"><defs><linearGradient id="flame" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f9a825"/><stop offset="50%" stop-color="#e0421c"/><stop offset="100%" stop-color="#b21a0b"/></linearGradient></defs><rect width="760" height="240" rx="18" fill="#00326a"/><g transform="translate(30,45)"><path d="M35 130 L35 10 Q35 0 45 0 L65 0 Q75 0 75 10 L75 80" fill="none" stroke="url(#flame)" stroke-width="18" stroke-linecap="round"/><path d="M55 60 Q55,30 80,15 Q105,0 110,30 Q115,55 95,65 Q75,75 60,110" fill="none" stroke="url(#flame)" stroke-width="12" stroke-linecap="round"/></g><text x="160" y="110" font-family="'Segoe UI',Roboto,sans-serif" font-size="68" font-weight="700" fill="#fff" letter-spacing="2">SOBIESKI</text><text x="160" y="158" font-family="'Segoe UI',Roboto,sans-serif" font-size="26" font-weight="400" fill="#e46a3a" letter-spacing="9">FIRE &amp; SAFETY SERVICES</text><text x="160" y="195" font-family="'Segoe UI',Roboto,sans-serif" font-size="16" font-weight="300" fill="#8eb4d8" letter-spacing="3">Protecting What Matters Most</text></svg>
+  </div>
+  <div class="header-fields">
+    <label>Customer:</label><input type="text" id="customerName" value="">
+    <label>Address:</label><input type="text" id="customerAddress" value="">
+    <label>City / State / Zip:</label><input type="text" id="cityStateZip" value="">
+    <label>Attention:</label><input type="text" id="attention" value="">
+    <label>Sprinkler on job?</label><select id="sprinklerOnJob"><option value="Yes">Yes</option><option value="No">No</option></select>
+    <label>Sell Rate:</label><input type="number" id="billingRate" min="0" step="0.01" value="" placeholder="auto">
+    <label>Loaded Cost:</label><input type="number" id="loadedCost" min="0" step="0.01" value="89">
+    <label>Margin %:</label><input type="number" id="priceLevel" min="1" max="95" step="1" value="35">
+    <label>Quote Years:</label><select id="quoteYears"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select>
+    <label>Effective Date:</label><input type="text" id="effectiveDate">
+    <label>Sales Tax %:</label><input type="number" id="salesTax" min="0" max="100" step="0.01" value="0">
+    <span class="hint">Hint: Sell rate = Loaded Cost / (1 – Margin %). Override by typing a value in Sell Rate. Clear it to restore auto.</span>
+    <span class="hint">Effective date format: MM/DD/YYYY or any date browser recognizes. Blank = today.</span>
+  </div>
+</div>
+
+<!-- Buttons -->
+<div class="button-row">
+  <button class="button" id="loadSample" type="button">Load sample counts</button>
+  <button class="button" id="clearCounts" type="button">Clear counts</button>
+  <button class="button" id="printFullForm" type="button">Print Full Form</button>
+  <button class="button primary" id="printProposal" type="button">Print / Save PDF</button>
+</div>
+
+<!-- Save / Load quotes -->
+<div class="saved-row">
+  <label></label>
+  <select id="savedQuotes"></select>
+  <input id="quoteName" placeholder="Quote name" value="">
+  <button class="button" id="saveQuote" type="button">Save</button>
+  <button class="button" id="loadQuote" type="button">Load</button>
+</div>
+<div class="year-options" id="yearOptions"></div>
+
+<!-- Estimate grid -->
+<div class="estimate-grid" id="estimateGrid">
+  <div class="cell head"></div>
+  <div class="cell head">Y/N</div>
+  <div class="cell head">Service</div>
+  <div class="cell head">Freq</div>
+  <div class="cell head">Qty</div>
+  <div class="cell head">Min</div>
+  <div class="cell head">Raw</div>
+  <div class="cell head">Techs</div>
+  <div class="cell head">Billed</div>
+  <div class="cell head">Unit $</div>
+  <div class="cell head">Total</div>
+  <div class="cell head">Note</div>
+</div>
+
+<!-- Proposal sheet -->
+<div class="proposal">
+  <div class="print-only" style="text-align:center;margin-bottom:8px;font-size:12px;color:var(--muted)">Proposal Prepared By Sobieski Fire &amp; Safety Services</div>
+  <h2 id="proposalTitle"></h2>
+  <div id="proposalInfo" style="font-size:13px;margin-bottom:10px;"></div>
+
+  <!-- Service lines -->
+  <table>
+    <thead>
+      <tr><th style="width:40px">Qty</th><th>Service Description</th><th style="width:90px">Approx. Date</th><th style="width:85px">Frequency</th><th style="width:70px">Unit</th><th style="width:90px">Total</th></tr>
+    </thead>
+    <tbody id="proposalRows"></tbody>
+  </table>
+
+  <!-- Year breakdown -->
+  <h3 style="margin:14px 0 6px;color:var(--navy)">Year-By-Year Breakdown</h3>
+  <table>
+    <thead>
+      <tr><th>Year</th><th>Services</th><th>Service Window</th><th style="width:90px">Subtotal</th><th style="width:70px">Tax</th><th style="width:90px">Total</th></tr>
+    </thead>
+    <tbody id="yearBreakdownRows"></tbody>
+  </table>
+
+  <!-- Totals -->
+  <div class="proposal-totals">
+    <div class="row"><span>Annual Work Visit Subtotal:</span><span id="annualVisitCharge"></span></div>
+    <div class="row"><span>Semi-Annual / Quarterly Combined Visit:</span><span id="quarterlyVisitCharge"></span></div>
+    <div class="row"><span>Other Quarterly Visit (each):</span><span id="semiVisitCharge"></span></div>
+    <div class="row grand"><span><span id="yearLabel"></span> Quote Total:</span><span id="proposalTotal"></span></div>
+
+    <div class="important-notes">
+      <strong>Important Notes:</strong>
+      <ul id="importantNotes"></ul>
+    </div>
+  </div>
+</div>
+
+</div> <!-- .app -->
+
+<script>
+    "use strict";
+
+    function $(id) { return document.getElementById(id); }
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+    const SEEVICE_TRIP_COST = 89;
+    const MONTHLY_VISITS_PER_YEAR = 11;
+
+    // -- Data model --
+    // each object is either: a section header ({ kind: "section" }),
+    // a data row (with id & group), or a roll-up formula row (kind: "summary" / "fee").
+    const estimatorRows = [
+      { kind: "section", title: "SPRINKLER (NFPA 25 Annual) - per-unit minutes; CEILING row below | 1 tech" },
+      { id: "wet", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Wet Pipe System (per riser)", min: 45, techs: 1, note: "45 min/riser" },
+      { id: "dry", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Dry Pipe System (per riser)", min: 70, techs: 1, note: "70 min/riser" },
+      { id: "preAction", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Pre-Action System (per riser)", min: 90, techs: 1, note: "90 min/riser" },
+      { id: "antiFreeze", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Anti-Freeze Loop (per loop)", min: 30, techs: 1, note: "30 min/loop" },
+      { id: "standpipe", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Standpipe (per riser)", min: 3, techs: 1, formula: "standpipe", note: "Workbook formula uses qty x 3 x wet risers x dry risers" },
+      { id: "controlValve", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Control / Butterfly Valve", min: 10, techs: 1, note: "10 min each" },
+      { id: "fdc", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Fire Dept. Connection (FDC)", min: 15, techs: 1, note: "15 min each" },
+      { id: "prv", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Pressure Reducing Valve (PRV)", min: 10, techs: 1, note: "10 min each" },
+      { id: "initiatingPreAction", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Initiating Device (Pre-Action)", min: 5, techs: 1, note: "5 min each" },
+      { id: "sprinklerTiedFa", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Sprinkler tied to Fire Alarm (+)", min: 15, techs: 1, note: "Adds 15 min" },
+      { id: "mainDrain", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Main Drain", min: 10, techs: 1, note: "Editable row added in workbook" },
+      { id: "inspectorsTest", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Inspector's Test", min: 10, techs: 1, note: "Editable row added in workbook" },
+      { id: "piv", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Post Indicator Valve (PIV)", min: 10, techs: 1, note: "Editable row added in workbook" },
+      { id: "fireHose", group: "sprinklerAnnual", enabled: true, qty: 0, freq: "A", desc: "Fire Hose", min: 10, techs: 1, note: "Editable row added in workbook" },
+      { kind: "summary", id: "sprinklerSummary", desc: "Sprinkler Annual Total" },
+      { kind: "fee", id: "sprinklerReporting", desc: "Sprinkler Reporting Fee", unitPrice: 40, note: "Per riser type (Wet/Dry/Pre-Action) at $40 each; unit price is editable" },
+      { kind: "section", title: "SPRINKLER (NFPA 25 Quarterly)" },
+      { id: "quarterlyVisit", group: "sprinklerQuarterly", enabled: true, qty: 1, freq: "Q", desc: "Quarterly Visit (per riser)", techs: 1, formula: "quarterly", note: "Workbook row 29 billing logic" },
+      { kind: "section", title: "FIRE ALARM (NFPA 72 Annual) - device rows show raw minutes; CEILING fires once at row 58 | 2 techs all rows" },
+      { id: "addrPanel", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Addressable Panel (FACP)", min: 60, techs: 2, note: "60 min" },
+      { id: "convPanel", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Conventional Panel (FACP)", min: 75, techs: 2, note: "75 min" },
+      { id: "addrAnnunciator", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Addressable Alarm Annunciator", min: 20, techs: 2, note: "20 min each" },
+      { id: "convAnnunciator", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Conventional Alarm Annunciator", min: 10, techs: 2, note: "10 min each" },
+      { id: "nacBooster", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "NAC Booster / Power Supply", min: 10, techs: 2, note: "10 min each" },
+      { id: "smokeAddr", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Smoke Detector - Addressable", min: 3, techs: 2, note: "3 min each" },
+      { id: "smokeConv", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Smoke Detector - Conventional", min: 5, techs: 2, note: "5 min each" },
+      { id: "heatDetector", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Heat Detector", min: 5, techs: 2, note: "5 min each" },
+      { id: "pullStation", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Manual Pull Station", min: 3, techs: 2, note: "3 min each" },
+      { id: "ductSmoke", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Duct Smoke Detector", min: 15, techs: 2, note: "15 min each" },
+      { id: "hornStrobe", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Horn / Strobe / Horn-Strobe Combo", min: 2, techs: 2, note: "2 min each" },
+      { id: "waterflow", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Waterflow Switch", min: 6, techs: 2, note: "6 min each" },
+      { id: "tamperSwitch", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Tamper Switch", min: 6, techs: 2, note: "6 min each" },
+      { id: "pressureSwitch", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Pressure Switch", min: 6, techs: 2, note: "6 min each" },
+      { id: "magHolder", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Magnetic Door Holder", min: 5, techs: 2, note: "5 min each" },
+      { id: "miscAux", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Misc. Aux Device / Module", min: 5, techs: 2, note: "5 min each" },
+      { id: "beamDetector", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Beam Detector", min: 15, techs: 2, note: "Workbook-added editable row" },
+      { id: "bell", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Bell", min: 5, techs: 2, note: "Use if not included in combo line" },
+      { id: "horn", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Horn", min: 5, techs: 2, note: "Use if not included in combo line" },
+      { id: "strobeBell", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Strobe Bell", min: 5, techs: 2, note: "Use if not included in combo line" },
+      { id: "miscAv", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Misc Audio/Visual Devices", min: 2, techs: 2, note: "Workbook-added editable row" },
+      { id: "speaker", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Speaker / Voice Evac Device", min: 5, techs: 2, note: "Separate voice evac line" },
+      { id: "firePhone", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Firefighter Telephone", min: 5, techs: 2, note: "Workbook-added editable row" },
+      { id: "batteries", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Batteries", min: 2, techs: 2, note: "Workbook-added editable row" },
+      { id: "abortButton", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Abort Button", min: 5, techs: 2, note: "Workbook-added editable row" },
+      { kind: "summary", id: "fireAlarmSummary", desc: "Fire Alarm Annual Total" },
+      { kind: "fee", id: "fireAlarmReporting", desc: "Fire Alarm Reporting Fee", unitPrice: 25, note: "Per panel (addr + conv); unit price is editable" },
+      { kind: "section", title: "SMOKE SENSITIVITY (NFPA 72 Biennial)" },
+      { id: "sensitivity", group: "smokeSensitivity", enabled: true, qty: 0, freq: "2Y", desc: "Smoke Sensitivity Test", min: 8, techs: 1, formula: "sensitivity", unitPrice: 20, note: "Flat smoke sensitivity sell price is editable." },
+      { kind: "section", title: "SEMI-ANNUAL FIRE ALARM (NFPA 72)" },
+      { id: "semiAnnual", group: "fireAlarmSemi", enabled: true, qty: 1, freq: "S", desc: "Semi-Annual Inspection", techs: 1, formula: "semiAnnual", binaryQty: true, note: "Y = 1 semi-annual inspection; N = 0. Billed in 2-hour blocks with a 2-hour minimum." },
+      { kind: "section", title: "BACKFLOW (NFPA 25)" },
+      { id: "backflow", group: "backflow", enabled: true, qty: 0, freq: "A", desc: "Backflow Preventer", min: 90, techs: 1, note: "90 min each; when sprinkler annual is inspected, labor is counted in the sprinkler annual bucket" },
+      { kind: "fee", id: "backflowReporting", desc: "Backflow Reporting Fee", unitPrice: 35, note: "Per backflow @ $35; unit price is editable" },
+      { kind: "section", title: "EXTINGUISHERS" },
+      { id: "extinguisher", group: "extinguisher", enabled: true, qty: 0, freq: "A", desc: "Fire Extinguisher (any type)", min: 5, techs: 1, unitPrice: 7, note: "Flat extinguisher sell price is editable." },
+      { id: "tamperSeal", group: "extinguisher", enabled: true, qty: 0, autoQty: "extinguisher", freq: "A", desc: "Tamper Seal", minLabel: "flat", techs: "", flat: 1, unitPrice: 1, note: "Qty auto-matches extinguishers; unit price is editable." },
+      { kind: "section", title: "EMERGENCY LIGHTS" },
+      { id: "emergencyLight", group: "light", enabled: true, qty: 0, freq: "A", desc: "Emergency Light / Exit Sign", min: 10, techs: 1, note: "10 min each" },
+      { kind: "fee", id: "lightReporting", desc: "Emergency Light Reporting Fee", unitPrice: 35, note: "Flat report fee; unit price is editable" },
+      { kind: "section", title: "HYDRANTS (NFPA 25 Annual)" },
+      { id: "hydrant", group: "hydrant", enabled: true, qty: 0, freq: "A", desc: "Hydrant (Pitot Flow)"K
