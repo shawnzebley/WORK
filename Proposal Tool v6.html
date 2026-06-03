@@ -1850,7 +1850,14 @@ html {
       const value = numericValue(input);
       if (input.dataset.key === "qty") row.qty = value;
       if (input.dataset.key === "gpm") row.gpm = value;
-      if (input.dataset.key === "unitPrice") row.unitPrice = value;
+      // Only persist a unit-price OVERRIDE if the user actually edited the field.
+      // Auto-priced rows pre-fill the box with the calculated value; without this
+      // guard, merely focusing and blurring would save that calc value back as a
+      // manual override and freeze the row against later cost / margin changes.
+      if (input.dataset.key === "unitPrice") {
+        if (input.dataset.userEdited === "1") row.unitPrice = value;
+        delete input.dataset.userEdited;
+      }
       input.value = String(value);
     }
 
@@ -3921,7 +3928,7 @@ html {
         }
         if (input.dataset.key === "qty") row.qty = numericValue(input);
         if (input.dataset.key === "gpm") row.gpm = numericValue(input);
-        if (input.dataset.key === "unitPrice") row.unitPrice = numericValue(input);
+        if (input.dataset.key === "unitPrice") { row.unitPrice = numericValue(input); input.dataset.userEdited = "1"; }
         if (input.dataset.key === "qty" || input.dataset.key === "gpm" || input.dataset.key === "unitPrice") {
           restoreViewport(scroll.x, scroll.y);
           return;
@@ -3951,7 +3958,7 @@ html {
         }
         if (input.dataset.key === "qty") row.qty = numericValue(input);
         if (input.dataset.key === "gpm") row.gpm = numericValue(input);
-        if (input.dataset.key === "unitPrice") row.unitPrice = numericValue(input);
+        if (input.dataset.key === "unitPrice") { row.unitPrice = numericValue(input); input.dataset.userEdited = "1"; }
         if (input.dataset.key === "qty" || input.dataset.key === "gpm" || input.dataset.key === "unitPrice") return;
       }
       scheduleRender();
