@@ -1536,7 +1536,7 @@ html {
 <th style="width:18%">Service Date Range</th>
 <th style="width:12%">Frequency</th>
 <th class="unit" style="width:12%">Unit Cost</th>
-<th class="unit" style="width:8%">Disc</th>
+
 <th class="money" style="width:12%">Total</th>
 </tr>
 </thead>
@@ -3085,7 +3085,7 @@ html {
       const add = (index, qty, description, date, frequency, unit, total, rowId = null) => {
         if (total > 0 && (!rowId || isChargedToCustomer(rowById(rowId)))) {
           const absorbable = !/reporting fee|portable fire extinguishers|emergency.*light|sensitivity testing/i.test(description);
-          sections[index].rows.push({ qty: String(qty), description, date, frequency, unit: unit * df, total: round2(total * df), disc: discPct, absorbable });
+          sections[index].rows.push({ qty: String(qty), description, date, frequency, unit: unit * df, total: round2(total * df), absorbable });
         }
       };
       const termFrequency = (frequency) => totals.years === 1 ? frequency : `${frequency} x ${totals.years} yrs`;
@@ -3192,7 +3192,7 @@ html {
                 <td>${line.date}</td>
                 <td>${escapeHtml(line.frequency)}</td>
                 <td class="unit">${money.format(line.unit)}</td>
-                <td class="disc">${line.disc ? round2(line.disc).toFixed(1) + "%" : "\u2014"}</td>
+
                 <td class="money">${money.format(line.total)}</td>
             `;
             tbodyFrag.appendChild(tr);
