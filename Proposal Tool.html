@@ -1555,6 +1555,14 @@ html {
 </thead>
 <tbody id="yearBreakdownRows"></tbody>
 </table>
+<div class="summary-total" id="proposalServiceSubtotalRow">
+<span>INSPECTION / SERVICE SUBTOTAL</span>
+<span id="proposalServiceSubtotal">$0.00</span>
+</div>
+<div class="summary-total" id="proposalReportingSubtotalRow">
+<span>REPORTING FEES SUBTOTAL</span>
+<span id="proposalReportingSubtotal">$0.00</span>
+</div>
 <div class="summary-total">
 <span>TOTAL QUOTE SUBTOTAL</span>
 <span id="proposalTotal">$0.00</span>
@@ -3075,6 +3083,16 @@ html {
       $("semiVisitCharge").textContent = money.format(customerAmount(totals.otherQuarterly));
       $("monthlyVisitCharge").textContent = money.format(customerAmount(totals.monthlyVisitMonthly));
       $("proposalTotal").textContent = money.format(totals.customerQuoteSubtotal);
+      // Split the quote into inspection/service labor vs. reporting fees. Reporting
+      // fees are never discounted, so they equal the fixed reporting term subtotal;
+      // everything else is the service labor remainder.
+      const reportingTermSubtotal = round2(totals.fixedReportingTermSubtotal || 0);
+      const serviceTermSubtotal = round2(totals.customerQuoteSubtotal - reportingTermSubtotal);
+      $("proposalServiceSubtotal").textContent = money.format(serviceTermSubtotal);
+      $("proposalReportingSubtotal").textContent = money.format(reportingTermSubtotal);
+      const showReportingBreakout = reportingTermSubtotal > 0;
+      $("proposalServiceSubtotalRow").style.display = showReportingBreakout ? "" : "none";
+      $("proposalReportingSubtotalRow").style.display = showReportingBreakout ? "" : "none";
       $("proposalTax").textContent = money.format(totals.customerSalesTax);
       $("proposalGrandTotal").textContent = money.format(totals.customerGrandTotal);
       const taxExempt = isTaxExempt();
@@ -3095,15 +3113,20 @@ html {
         { title: "FIRE & DOMESTIC BACKFLOW PREVENTERS | NFPA 25", rows: [] },
         { title: "PORTABLE FIRE EXTINGUISHERS | NFPA 10", rows: [] },
         { title: "EMERGENCY & EXIT LIGHT INSPECTIONS | NFPA 101", rows: [] },
-        { title: "OTHER SYSTEMS / MULTI-YEAR", rows: [] }
+        { title: "OTHER SYSTEMS / MULTI-YEAR", rows: [] },
+        { title: "REPORTING FEES", rows: [] }
       ];
+      const REPORTING_SECTION_INDEX = sections.length - 1;
       const dates = getDates();
       const add = (index, qty, description, date, frequency, unit, total, rowId = null) => {
         if (total > 0 && (!rowId || isChargedToCustomer(rowById(rowId)))) {
           const isReportingFee = /reporting fee/i.test(description);
           const factor = isReportingFee ? 1 : df;
           const absorbable = !isReportingFee && !/portable fire extinguishers|emergency.*light|sensitivity testing/i.test(description);
-          sections[index].rows.push({ qty: String(qty), description, date, frequency, unit: unit * factor, total: round2(total * factor), absorbable });
+          // Reporting fees are grouped into their own section so the proposal
+          // differentiates inspection/service labor from reporting charges.
+          const targetIndex = isReportingFee ? REPORTING_SECTION_INDEX : index;
+          sections[targetIndex].rows.push({ qty: String(qty), description, date, frequency, unit: unit * factor, total: round2(total * factor), absorbable });
         }
       };
       const termFrequency = (frequency) => totals.years === 1 ? frequency : `${frequency} x ${totals.years} yrs`;
