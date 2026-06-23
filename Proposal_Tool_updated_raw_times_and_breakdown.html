@@ -4744,6 +4744,112 @@ html {
       return { pageBreak, heading, lead, para, bullet, blank, serviceReport, inspReports };
     }
 
+    // Returns WordprocessingML for the Fire Sprinkler System description page(s).
+    // A dedicated section is produced for each sprinkler type quoted: a Wet section
+    // when wet risers are quoted, and a Dry-Pipe / Pre-Action / Deluge section when
+    // dry or pre-action risers are quoted. Scope language follows the SLS standard
+    // inspection agreement for NFPA 25 wet and dry-pipe systems.
+    function agreementSprinklerDescription() {
+      const wet = agreementQty("wet") > 0;
+      const dry = agreementQty("dry") > 0 || agreementQty("preAction") > 0;
+      if (!wet && !dry) return "";
+      const { pageBreak, heading, lead, para, bullet, blank, serviceReport, inspReports } = agreementDescriptionParts();
+      let out = "";
+
+      if (wet) {
+        out += pageBreak;
+        out += heading("Fire Sprinkler System Testing & Inspection (Wet Type)");
+        out += lead(
+          "Scope – ",
+          "SLS will test & inspect the Wet Type Fire Sprinkler System(s) listed on the attached Equipment List."
+        );
+        out += blank;
+        out += para(serviceReport);
+        out += blank;
+        out += lead(
+          "Testing & Inspection Frequency – ",
+          "SLS will perform four (4) tests per year on the Fire Sprinkler System(s) to include Vane-Type Waterflow, " +
+            "Water Motor Gongs, Valve Tamper Switches, Sprinkler Supervisory Switches and Waterflow Pressure Switches.  " +
+            "Flow testing shall include the opening of each Inspector's Test Valve to activate Waterflow Alarm Devices " +
+            "(to include Waterflow Pressure Switches).  Annually during one of the above scheduled inspections, SLS " +
+            "personnel will visually inspect all accessible sprinklers, sprinkler piping, fittings, hangers and seismic " +
+            "bracing from the floor level and will perform the following:"
+        );
+        out += bullet("Check for signs of leakage, corrosion, improper loading, misalignment, or physical damage");
+        out += bullet("Check for proper sprinkler head orientation and for any obstructions to the sprinkler spray pattern");
+        out += bullet("Check all gauges and control valves for proper operation");
+        out += bullet("Exercise all valves and annually lubricate all valve stems");
+        out += bullet("Check all hose connections and inspect the Fire Department Connection during each scheduled inspection");
+        out += bullet("Check the supply of spare sprinklers, including the required minimum quantity of each type, proper storage and wrench types during each scheduled inspection");
+        out += bullet("Clean the strainer");
+        out += bullet("Flush underground lead-in connections (water mist systems only)");
+        out += bullet("Perform a Main Drain Test annually and record static and residual pressures");
+        out += bullet("Test the freezing point of antifreeze solutions if applicable");
+        out += bullet("Apply inspection tag to the system");
+        out += blank;
+        out += para(
+          "All tests and inspections will be completed in accordance with the most recent edition of NFPA 25 – " +
+            "Inspection, Testing and Maintenance of Water-Based Fire Protection Systems.  Please refer to Special " +
+            "Provisions for additional testing and inspections to be performed under this Agreement.  Other required " +
+            "weekly, monthly, quarterly and five-year inspections and tests, in addition to laboratory testing of " +
+            "sprinkler heads, are not included in this Agreement unless otherwise specified in the Special Provisions."
+        );
+        out += blank;
+        out += lead("Inspection Reports – ", inspReports);
+      }
+
+      if (dry) {
+        out += pageBreak;
+        out += heading("Fire Sprinkler System Testing & Inspection (Dry-Pipe, Pre-Action, Deluge)");
+        out += lead(
+          "Scope – ",
+          "SLS will test & inspect the Dry-Pipe Fire Sprinkler System(s) listed on the attached Equipment List."
+        );
+        out += blank;
+        out += para(serviceReport);
+        out += blank;
+        out += lead(
+          "Testing & Inspection Frequency – ",
+          "SLS will perform four (4) tests per year on the Sprinkler System(s) Valve Tamper and associated Pressure " +
+            "Switch Alarm Devices.  During each of these inspections, the following tests will be performed unless " +
+            "otherwise noted:"
+        );
+        out += bullet("Check and adjust dry-pipe priming water level");
+        out += bullet("Test all Low-Air-Pressure Alarm Devices and record air pressure on alarm activation");
+        out += bullet("Test the dry-pipe System Flow Alarm by opening the alarm bypass valve");
+        out += bullet("Test quick-opening devices and accelerators (if applicable) semi-annually");
+        out += bullet("Test the fire detection system for proper operation and interface to the Pre-Action System");
+        out += blank;
+        out += para(
+          "Annually during one of the above scheduled inspections, SLS personnel will visually inspect all accessible " +
+            "sprinklers, sprinkler piping, fittings, hangers and seismic bracing from the floor level and will perform " +
+            "the following:"
+        );
+        out += bullet("Conduct partial Trip-testing of the dry-pipe valve and record the time");
+        out += bullet("Open the dry-pipe valve; inspect and clean the interior");
+        out += bullet("Check all low-point drains (Drum Drips) – drain thoroughly");
+        out += bullet("Internally inspect the Dry-pipe Valve and clean; test the air pressure maintenance device (compressor)");
+        out += bullet("Perform a Main Drain Test annually and record static and residual pressures");
+        out += bullet("Check all hose connections and inspect the FDC if applicable during each scheduled inspection");
+        out += bullet("Check for signs of leakage, corrosion, improper loading, misalignment, physical damage, or if sprinkler heads have been painted or damaged in any way (i.e. glass-bulb sprinklers)");
+        out += bullet("Check for proper sprinkler head orientation and for any obstructions to the sprinkler spray pattern");
+        out += bullet("Check all gauges and control valves for proper operation");
+        out += bullet("Check to ensure adequate heat can be maintained in the dry-pipe valve room");
+        out += bullet("Check the Hydraulic nameplate if applicable and the supply of spare sprinklers, proper storage and wrench types");
+        out += blank;
+        out += para(
+          "All tests and inspections will be completed in accordance with the most recent edition of NFPA 25 – " +
+            "Inspection, Testing and Maintenance of Water-Based Fire Protection Systems.  Please refer to Special " +
+            "Provisions for additional testing and inspections to be performed under this Agreement.  The required " +
+            "Full Flow Dry-Pipe Trip Test every three years is not included in this Agreement."
+        );
+        out += blank;
+        out += lead("Inspection Reports – ", inspReports);
+      }
+
+      return out;
+    }
+
     function agreementBackflowDescription() {
       if (agreementQty("backflow") <= 0) return "";
       const { pageBreak, heading, lead, para, bullet, blank, serviceReport, inspReports } = agreementDescriptionParts();
@@ -5014,7 +5120,7 @@ html {
         // Inject the applicable Kitchen / Paint Booth description page (only when
         // quoted) immediately before the Special Provisions heading, so it sits
         // alongside the other descriptions regardless of which were removed above.
-        const extraDescriptions = agreementBackflowDescription() + agreementKitchenPaintDescription();
+        const extraDescriptions = agreementSprinklerDescription() + agreementBackflowDescription() + agreementKitchenPaintDescription();
         if (extraDescriptions) {
           const spIntro = xml.indexOf("These Special Provisions are incorporated");
           if (spIntro !== -1) {
