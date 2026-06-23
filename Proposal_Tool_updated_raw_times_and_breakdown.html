@@ -3740,12 +3740,20 @@ html {
     }
 
     function serviceSummary(group) {
-      const rows = dataRows(group)
+      // For the fire-alarm and sprinkler annual lines, the proposal scope lists
+      // the system/panel counts rather than every individual device: alarm
+      // panels for fire alarm, and wet / dry / pre-action systems for sprinkler.
+      const limitedIds = {
+        fireAlarmAnnual: ["addrPanel", "convPanel"],
+        sprinklerAnnual: ["wet", "dry", "preAction"]
+      };
+      const ids = limitedIds[group];
+      const sourceRows = ids
+        ? ids.map((id) => rowById(id)).filter(Boolean)
+        : dataRows(group);
+      const rows = sourceRows
         .filter((row) => activeQty(row))
         .map((row) => `${activeQty(row)} ${row.desc}`);
-      if (group === "sprinklerAnnual" && hasSprinklerAnnualInspection() && activeQty(rowById("backflow"))) {
-        rows.push(`${activeQty(rowById("backflow"))} Backflow Preventer`);
-      }
       return rows.join("; ") || "No items entered";
     }
 
