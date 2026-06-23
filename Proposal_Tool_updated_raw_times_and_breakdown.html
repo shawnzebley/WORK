@@ -4989,6 +4989,50 @@ html {
       return out;
     }
 
+    // Inserts pre-built description pages (WordprocessingML) immediately before
+    // the Special Provisions heading. It first trims the run of blank spacer
+    // paragraphs the template leaves ahead of that heading, then — if the
+    // insertion point now follows a page break or section break — drops the
+    // block's own leading page break. Without this, the leftover spacers plus a
+    // stacked page break render an empty page in front of the descriptions.
+    function injectBeforeSpecialProvisions(xml, block, leadBreak) {
+      if (!block) return xml;
+      const spIntro = xml.indexOf("These Special Provisions are incorporated");
+      if (spIntro === -1) return xml;
+      const spRun = xml.lastIndexOf("Special Provisions</w:t>", spIntro);
+      const headingStart = spRun === -1 ? -1 : xml.lastIndexOf("<w:p>", spRun);
+      if (headingStart === -1) return xml;
+
+      const isBlankPara = (p) => {
+        if (p.indexOf('<w:br w:type="page"/>') !== -1) return false;
+        if (p.indexOf("<w:sectPr") !== -1) return false;
+        if (p.indexOf("<w:drawing") !== -1 || p.indexOf("<w:pict") !== -1) return false;
+        const texts = p.match(/<w:t[^>]*>[\s\S]*?<\/w:t>/g) || [];
+        return texts.every((t) => t.replace(/<[^>]*>/g, "").trim() === "");
+      };
+      const paraBefore = (pos) => {
+        const close = xml.lastIndexOf("</w:p>", pos);
+        if (close === -1) return null;
+        const start = xml.lastIndexOf("<w:p>", close);
+        if (start === -1) return null;
+        return { start, end: close + 6 };
+      };
+
+      let cut = headingStart;
+      for (let prev = paraBefore(cut); prev && isBlankPara(xml.slice(prev.start, prev.end)); prev = paraBefore(cut)) {
+        cut = prev.start;
+      }
+      const prev = paraBefore(cut);
+      const prevPara = prev ? xml.slice(prev.start, prev.end) : "";
+      const followsBreak =
+        prevPara.indexOf('<w:br w:type="page"/>') !== -1 ||
+        prevPara.indexOf("<w:sectPr") !== -1;
+      if (followsBreak && leadBreak && block.startsWith(leadBreak)) {
+        block = block.slice(leadBreak.length);
+      }
+      return xml.slice(0, cut) + block + xml.slice(headingStart);
+    }
+
     function agreementEquipmentRows(items) {
       // Mirrors the formatting of the template's existing Equipment List rows.
       const border = '<w:tcBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/><w:start w:val="single" w:sz="4" w:space="0" w:color="000000"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/><w:end w:val="single" w:sz="4" w:space="0" w:color="000000"/></w:tcBorders>';
@@ -5117,20 +5161,14 @@ html {
           xml = removeBlock(xml, "Portable Fire Extinguishers", "quantity noted on the Equipment List", true);
         }
 
-        // Inject the applicable Kitchen / Paint Booth description page (only when
-        // quoted) immediately before the Special Provisions heading, so it sits
-        // alongside the other descriptions regardless of which were removed above.
+        // Inject the applicable extra description pages (sprinkler, backflow,
+        // kitchen / paint) immediately before the Special Provisions heading, so
+        // they sit alongside the other descriptions regardless of which built-in
+        // pages were removed above. The helper trims the template's blank spacer
+        // paragraphs there so the injected pages don't render a blank page ahead
+        // of them.
         const extraDescriptions = agreementSprinklerDescription() + agreementBackflowDescription() + agreementKitchenPaintDescription();
-        if (extraDescriptions) {
-          const spIntro = xml.indexOf("These Special Provisions are incorporated");
-          if (spIntro !== -1) {
-            const spRun = xml.lastIndexOf("Special Provisions</w:t>", spIntro);
-            const spStart = spRun === -1 ? -1 : xml.lastIndexOf("<w:p>", spRun);
-            if (spStart !== -1) {
-              xml = xml.slice(0, spStart) + extraDescriptions + xml.slice(spStart);
-            }
-          }
-        }
+        xml = injectBeforeSpecialProvisions(xml, extraDescriptions, agreementDescriptionParts().pageBreak);
 
         xml = xml.replace("[[EQUIPMENT_ROWS]]", agreementEquipmentRows(agreementEquipmentItems()));
 
