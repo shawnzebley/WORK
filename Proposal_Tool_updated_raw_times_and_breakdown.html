@@ -1060,19 +1060,21 @@
 
     .turnover-labor .per-visit-table col-visit { width: 22%; }
     .turnover-labor .per-visit-table th:nth-child(1),
-    .turnover-labor .per-visit-table td:nth-child(1) { width: 22%; }
+    .turnover-labor .per-visit-table td:nth-child(1) { width: 20%; }
     .turnover-labor .per-visit-table th:nth-child(2),
-    .turnover-labor .per-visit-table td:nth-child(2) { width: 11%; }
+    .turnover-labor .per-visit-table td:nth-child(2) { width: 10%; }
     .turnover-labor .per-visit-table th:nth-child(3),
-    .turnover-labor .per-visit-table td:nth-child(3) { width: 11%; }
+    .turnover-labor .per-visit-table td:nth-child(3) { width: 10%; }
     .turnover-labor .per-visit-table th:nth-child(4),
-    .turnover-labor .per-visit-table td:nth-child(4) { width: 11%; }
+    .turnover-labor .per-visit-table td:nth-child(4) { width: 10%; }
     .turnover-labor .per-visit-table th:nth-child(5),
-    .turnover-labor .per-visit-table td:nth-child(5) { width: 13%; }
+    .turnover-labor .per-visit-table td:nth-child(5) { width: 10%; }
     .turnover-labor .per-visit-table th:nth-child(6),
-    .turnover-labor .per-visit-table td:nth-child(6) { width: 16%; }
+    .turnover-labor .per-visit-table td:nth-child(6) { width: 10%; }
     .turnover-labor .per-visit-table th:nth-child(7),
-    .turnover-labor .per-visit-table td:nth-child(7) { width: 16%; }
+    .turnover-labor .per-visit-table td:nth-child(7) { width: 15%; }
+    .turnover-labor .per-visit-table th:nth-child(8),
+    .turnover-labor .per-visit-table td:nth-child(8) { width: 15%; }
 
     .turnover-totals {
       margin-top: 8px;
@@ -4187,10 +4189,10 @@ html {
       const monthlyVisitInternal = (monthlyVisitHours + monthlyVisitDriveHrs) * loaded;
 
       const perVisitRows = [
-        { label: "Annual Visit", freq: "1 × / yr", count: 1, onsite: annualVisitHours, drive: annualVisitDriveHrs, internal: annualVisitInternal, customer: annualVisitCustomer },
-        { label: "Combined Q + Semi Visit", freq: "1 × / yr", count: 1, onsite: combinedVisitHours, drive: combinedVisitDriveHrs, internal: combinedVisitInternal, customer: combinedVisitCustomer },
-        { label: "Other Quarterly Visit (each)", freq: "2 × / yr", count: 2, onsite: quarterlyVisitHours, drive: quarterlyVisitDriveHrs, internal: quarterlyVisitInternal, customer: quarterlyVisitCustomer },
-        { label: `Monthly Visit (each)`, freq: `${MONTHLY_VISITS_PER_YEAR} × / yr`, count: MONTHLY_VISITS_PER_YEAR, onsite: monthlyVisitHours, drive: monthlyVisitDriveHrs, internal: monthlyVisitInternal, customer: monthlyVisitCustomer }
+        { label: "Annual Visit", freq: "1 × / yr", count: 1, rawMin: totals.annualPoolRawMinutes || 0, onsite: annualVisitHours, drive: annualVisitDriveHrs, internal: annualVisitInternal, customer: annualVisitCustomer },
+        { label: "Combined Q + Semi Visit", freq: "1 × / yr", count: 1, rawMin: totals.combinedVisitPoolRaw || 0, onsite: combinedVisitHours, drive: combinedVisitDriveHrs, internal: combinedVisitInternal, customer: combinedVisitCustomer },
+        { label: "Other Quarterly Visit (each)", freq: "2 × / yr", count: 2, rawMin: totals.quarterlyRaw || 0, onsite: quarterlyVisitHours, drive: quarterlyVisitDriveHrs, internal: quarterlyVisitInternal, customer: quarterlyVisitCustomer },
+        { label: `Monthly Visit (each)`, freq: `${MONTHLY_VISITS_PER_YEAR} × / yr`, count: MONTHLY_VISITS_PER_YEAR, rawMin: totals.totalMonthlyRaw || 0, onsite: monthlyVisitHours, drive: monthlyVisitDriveHrs, internal: monthlyVisitInternal, customer: monthlyVisitCustomer }
       ]
         .map((row) => ({ ...row, hours: round2((row.onsite || 0) + (row.drive || 0)) }))
         .filter((row) => row.hours > 0 || row.customer > 0);
@@ -4199,6 +4201,7 @@ html {
         .map((row) => `<tr>
           <td>${escapeHtml(row.label)}</td>
           <td class="freq">${row.freq}</td>
+          <td class="num">${formatPlain(round2((row.rawMin || 0) / 60))} hrs</td>
           <td class="num">${formatPlain(round2(row.onsite))} hrs</td>
           <td class="num">${formatPlain(round2(row.drive))} hrs</td>
           <td class="num">${formatPlain(row.hours)} hrs</td>
@@ -4208,6 +4211,7 @@ html {
         .join("");
 
       // Annual rollup (year 1)
+      const annualTotalRaw = perVisitRows.reduce((sum, r) => sum + (r.rawMin || 0) * r.count, 0);
       const annualTotalOnsite = perVisitRows.reduce((sum, r) => sum + r.onsite * r.count, 0);
       const annualTotalDrive = perVisitRows.reduce((sum, r) => sum + r.drive * r.count, 0);
       const annualTotalHours = perVisitRows.reduce((sum, r) => sum + r.hours * r.count, 0);
@@ -4219,6 +4223,7 @@ html {
       const totalsHtml = `<tr class="total">
           <td>Annual Total</td>
           <td class="freq"></td>
+          <td class="num">${formatPlain(round2(annualTotalRaw / 60))} hrs</td>
           <td class="num">${formatPlain(round2(annualTotalOnsite))} hrs</td>
           <td class="num">${formatPlain(round2(annualTotalDrive))} hrs</td>
           <td class="num">${formatPlain(round2(annualTotalHours))} hrs</td>
@@ -4231,12 +4236,14 @@ html {
           <td class="num"></td>
           <td class="num"></td>
           <td class="num"></td>
+          <td class="num"></td>
           <td class="num">${money.format(annualMarginDollars)}</td>
           <td class="num">${formatPercent(annualMarginPct)}</td>
         </tr>
         <tr class="muted-row">
           <td>Price Level</td>
           <td class="freq"></td>
+          <td class="num"></td>
           <td class="num"></td>
           <td class="num"></td>
           <td class="num"></td>
@@ -4289,9 +4296,9 @@ html {
         <h3>Labor &amp; Margin Analysis (Per-Visit Breakdown)</h3>
         <div class="labor-block">
           <table class="per-visit-table"><thead>
-            <tr><th>Visit Type</th><th class="freq">Frequency</th><th class="num">On-Site Hrs</th><th class="num">Drive Hrs</th><th class="num">Labor Hrs</th><th class="num">Internal Cost</th><th class="num">Customer Price</th></tr>
+            <tr><th>Visit Type</th><th class="freq">Frequency</th><th class="num">Raw Hrs</th><th class="num">On-Site Hrs</th><th class="num">Drive Hrs</th><th class="num">Labor Hrs</th><th class="num">Internal Cost</th><th class="num">Customer Price</th></tr>
           </thead><tbody>
-            ${perVisitHtml || '<tr><td colspan="7" class="muted">No visits configured.</td></tr>'}
+            ${perVisitHtml || '<tr><td colspan="8" class="muted">No visits configured.</td></tr>'}
             ${totalsHtml}
           </tbody></table>
         </div>
