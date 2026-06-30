@@ -1724,7 +1724,7 @@ html {
       { kind: "section", title: "EMERGENCY / EXIT LIGHTS (Annual) - 1 tech; 6 per hour; MIN 2-hr bill" },
       { id: "emergencyLight", group: "lights", enabled: true, qty: 0, freq: "A", desc: "Emergency / Exit Light", min: 10, techs: 1, unitPrice: 0, note: "10 min each; 2-hour minimum. Enter unit price to override auto-calculated price." },
       { kind: "fee", id: "lightReporting", desc: "Reporting Fees", unitPrice: 35, note: "Editable light reporting fee; keys off emergency / exit light qty. Default $35." },
-      { id: "monthlyLight", group: "lights", enabled: false, qty: 0, autoQty: "emergencyLight", freq: "M", desc: "Monthly Emergency Light Inspection", min: 0.5, techs: 1, unitPrice: 5, note: "0.5 raw min/unit; billed 11x/year in 2-hr monthly trip blocks. Per-unit price is editable. Not auto-included with annual inspections; manually enable when quoting monthly service." },
+      { id: "monthlyLight", group: "lights", enabled: false, qty: 0, autoQty: "emergencyLight", freq: "M", desc: "Monthly Emergency Light Inspection", min: 4, techs: 1, unitPrice: 5, note: "4 raw min/unit; billed 11x/year in 2-hr monthly trip blocks. Per-unit price is editable. Not auto-included with annual inspections; manually enable when quoting monthly service." },
 
       { kind: "section", title: "OTHER SYSTEMS" },
       { id: "hydrant", group: "other", enabled: true, qty: 0, freq: "A", desc: "Hydrant", min: 20, techs: 1, unitPrice: 0, note: "20 min each. With sprinkler: billed from labor time. Standalone: per-unit sell price. Enter unit price to override auto-calculated price." },
