@@ -1725,7 +1725,7 @@ html {
       { id: "emergencyLight", group: "lights", enabled: true, qty: 0, freq: "A", desc: "Emergency / Exit Light", min: 10, techs: 1, unitPrice: 0, note: "10 min each; 2-hour minimum. Enter unit price to override auto-calculated price." },
       { kind: "fee", id: "lightReporting", desc: "Reporting Fees", unitPrice: 35, note: "Editable light reporting fee; keys off emergency / exit light qty. Default $35." },
       { id: "monthlyLight", group: "lights", enabled: false, qty: 0, autoQty: "emergencyLight", freq: "M", desc: "Monthly Emergency Light Inspection", min: 4, techs: 1, unitPrice: 5, note: "4 raw min/unit; billed 11x/year in 2-hr monthly trip blocks. Per-unit price is editable. Not auto-included with annual inspections; manually enable when quoting monthly service." },
-      { id: "lightPushTest", group: "lights", enabled: false, qty: 0, autoQty: "emergencyLight", freq: "A", desc: "Emergency / Exit Light - Push Test Only (in lieu of annual)", min: 4, techs: 1, unitPrice: 0, note: "Functional push-button test only, performed once with the annual inspections in lieu of the full annual emergency / exit light test. 4 raw min/unit; folds into the annual labor pool. Qty auto-matches emergency / exit lights. Enter unit price to override auto-calculated price. When enabled, replaces the full annual emergency / exit light inspection line." },
+      { id: "lightPushTest", group: "lights", enabled: false, qty: 0, freq: "A", desc: "Emergency / Exit Light - Push Test Only (in lieu of annual)", min: 2, techs: 1, unitPrice: 0, note: "Functional push-button test only, performed once with the annual inspections in lieu of the full annual emergency / exit light test. 2 raw min/unit; folds into the annual labor pool. Enter the light quantity directly on this line; it does not require the annual line to be selected. Enter unit price to override auto-calculated price. When enabled with a quantity, replaces the full annual emergency / exit light inspection line." },
 
       { kind: "section", title: "OTHER SYSTEMS" },
       { id: "hydrant", group: "other", enabled: true, qty: 0, freq: "A", desc: "Hydrant", min: 20, techs: 1, unitPrice: 0, note: "20 min each. With sprinkler: billed from labor time. Standalone: per-unit sell price. Enter unit price to override auto-calculated price." },
@@ -2370,7 +2370,7 @@ html {
       const extinguisherTotal = activeQty(rowById("extinguisher")) * extinguisherUnit;
       const tamperTotal = activeQty(rowById("tamperSeal")) * tamperUnit;
       const extinguisherReporting = activeQty(rowById("extinguisher")) ? extinguisherReportingUnit : 0;
-      const lightReporting = activeQty(rowById("emergencyLight")) ? lightReportingUnit : 0;
+      const lightReporting = (activeQty(rowById("emergencyLight")) || activeQty(rowById("lightPushTest"))) ? lightReportingUnit : 0;
       const lightOverride = Number(rowById("emergencyLight")?.unitPrice) || 0;
       const lightQty = activeQty(rowById("emergencyLight"));
       const lightDefaultUnit = lightQty > 0 && lightBilled > 0 ? round2((lightBilled * rate) / lightQty) : 0;
@@ -3165,7 +3165,7 @@ html {
 
       add(4, totals.pushTestActive ? 0 : activeQty(rowById("emergencyLight")), "NFPA 101 Annual Inspection - Emergency / Exit Lights: operational test and visual inspection of emergency lighting and exit signs.", dates.annual, termFrequency("Annual"), totals.lightUnit, termTotal(totals.lightTotal), "emergencyLight");
       add(4, activeQty(rowById("lightPushTest")), "NFPA 101 Emergency / Exit Lights - Push Test Only: functional push-button (push test) verification of emergency lighting and exit signs, performed once with the annual inspection in lieu of the full annual operational test.", dates.annual, termFrequency("Annual"), totals.lightPushTestUnit, termTotal(totals.lightPushTestTotal), "lightPushTest");
-      add(4, activeQty(rowById("emergencyLight")) ? 1 : 0, "Emergency / Exit Light Reporting Fee", dates.annual, termFrequency("Annual"), totals.lightReportingUnit, termTotal(totals.lightReporting));
+      add(4, (activeQty(rowById("emergencyLight")) || activeQty(rowById("lightPushTest"))) ? 1 : 0, "Emergency / Exit Light Reporting Fee", dates.annual, termFrequency("Annual"), totals.lightReportingUnit, termTotal(totals.lightReporting));
       add(4, activeQty(rowById("monthlyLight")), "NFPA 101 Monthly Inspection - Emergency / Exit Lights: monthly operational check of emergency lighting and exit signs.", dates.annual, monthlyFrequency, totals.monthlyLightUnit, termTotal(totals.monthlyLightTotal), "monthlyLight");
 
       add(5, activeQty(rowById("hydrant")), "NFPA 25 Annual Inspection - Fire Hydrant: inspection and testing of fire hydrant equipment.", dates.annual, termFrequency("Annual"), isSprinklerOnJob() ? totals.rate : totals.hydrantUnit, termTotal(totals.hydrantTotal), "hydrant");
@@ -3294,10 +3294,9 @@ html {
       if (activeQty(rowById("semiAnnual"))) annualServices.push("Semi-annual fire alarm inspection");
       if (activeQty(rowById("backflow"))) annualServices.push("Backflow inspection");
       if (activeQty(rowById("extinguisher"))) annualServices.push("Extinguishers and tamper seals");
-      if (activeQty(rowById("emergencyLight"))) annualServices.push(
-        (Boolean(rowById("lightPushTest")?.enabled) && activeQty(rowById("lightPushTest")) > 0)
-          ? "Emergency / exit lights (push test only)"
-          : "Emergency / exit lights"
+      const lightPushOnly = Boolean(rowById("lightPushTest")?.enabled) && activeQty(rowById("lightPushTest")) > 0;
+      if (activeQty(rowById("emergencyLight")) || lightPushOnly) annualServices.push(
+        lightPushOnly ? "Emergency / exit lights (push test only)" : "Emergency / exit lights"
       );
       if (activeQty(rowById("hydrant"))) annualServices.push("Hydrant inspection");
       if (activeQty(rowById("firePump"))) annualServices.push("Fire pump inspection");
@@ -3492,10 +3491,10 @@ html {
       const extinguisherUnit = totals.extinguisherUnit > 0 ? round(totals.extinguisherUnit) : 7;
       const tamperQty = activeQty(rowById("tamperSeal"));
       const tamperUnit = totals.tamperUnit > 0 ? round(totals.tamperUnit) : 1;
-      const lightQty = activeQty(rowById("emergencyLight"));
       const lightPushOnly = Boolean(rowById("lightPushTest")?.enabled) && activeQty(rowById("lightPushTest")) > 0;
+      const lightQty = lightPushOnly ? activeQty(rowById("lightPushTest")) : activeQty(rowById("emergencyLight"));
       const lightUnit = lightPushOnly
-        ? (totals.lightPushTestUnit > 0 ? round(totals.lightPushTestUnit) : round(rate * 4 / 60))
+        ? (totals.lightPushTestUnit > 0 ? round(totals.lightPushTestUnit) : round(rate * 2 / 60))
         : (totals.lightUnit > 0 ? round(totals.lightUnit) : round(rate * 10 / 60));
       const pumpQty = activeQty(rowById("firePump"));
       const pumpUnit = totals.pumpUnit > 0 ? round(totals.pumpUnit) : round(rate * 240 / 60);
