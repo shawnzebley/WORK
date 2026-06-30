@@ -1724,7 +1724,8 @@ html {
       { kind: "section", title: "EMERGENCY / EXIT LIGHTS (Annual) - 1 tech; 6 per hour; MIN 2-hr bill" },
       { id: "emergencyLight", group: "lights", enabled: true, qty: 0, freq: "A", desc: "Emergency / Exit Light", min: 10, techs: 1, unitPrice: 0, note: "10 min each; 2-hour minimum. Enter unit price to override auto-calculated price." },
       { kind: "fee", id: "lightReporting", desc: "Reporting Fees", unitPrice: 35, note: "Editable light reporting fee; keys off emergency / exit light qty. Default $35." },
-      { id: "monthlyLight", group: "lights", enabled: false, qty: 0, autoQty: "emergencyLight", freq: "M", desc: "Monthly Emergency Light Inspection", min: 0.5, techs: 1, unitPrice: 5, note: "0.5 raw min/unit; billed 11x/year in 2-hr monthly trip blocks. Per-unit price is editable. Not auto-included with annual inspections; manually enable when quoting monthly service." },
+      { id: "monthlyLight", group: "lights", enabled: false, qty: 0, autoQty: "emergencyLight", freq: "M", desc: "Monthly Emergency Light Inspection", min: 4, techs: 1, unitPrice: 5, note: "4 raw min/unit; billed 11x/year in 2-hr monthly trip blocks. Per-unit price is editable. Not auto-included with annual inspections; manually enable when quoting monthly service." },
+      { id: "lightPushTest", group: "lights", enabled: false, qty: 0, freq: "A", desc: "Emergency / Exit Light - Push Test Only (in lieu of annual)", min: 2, techs: 1, unitPrice: 0, note: "Functional push-button test only, performed once with the annual inspections in lieu of the full annual emergency / exit light test. 2 raw min/unit; folds into the annual labor pool. Enter the light quantity directly on this line; it does not require the annual line to be selected. Enter unit price to override auto-calculated price. When enabled with a quantity, replaces the full annual emergency / exit light inspection line." },
 
       { kind: "section", title: "OTHER SYSTEMS" },
       { id: "hydrant", group: "other", enabled: true, qty: 0, freq: "A", desc: "Hydrant", min: 20, techs: 1, unitPrice: 0, note: "20 min each. With sprinkler: billed from labor time. Standalone: per-unit sell price. Enter unit price to override auto-calculated price." },
@@ -2093,6 +2094,13 @@ html {
 
       const extinguisherRaw = rowMinutes(rowById("extinguisher"));
       const lightRaw = rowMinutes(rowById("emergencyLight"));
+      // Push-test-only option: when enabled it replaces the full annual emergency
+      // light inspection with a one-time functional push test, billed with the
+      // annual visit. Its 4 min/unit labor folds into the annual pool in place of
+      // the full annual line's labor.
+      const lightPushTestRaw = rowMinutes(rowById("lightPushTest"));
+      const pushTestActive = lightPushTestRaw > 0;
+      const lightAnnualRaw = pushTestActive ? 0 : lightRaw;
 
       const hydrantRaw = rowMinutes(rowById("hydrant"));
 
@@ -2128,7 +2136,7 @@ html {
       const annualPoolRawMinutes =
         sprinklerRaw + fireAlarmRaw + sensitivityRaw +
         (backflowRaw && !backflowInSprinklerAnnual ? backflowRaw : 0) +
-        extinguisherRaw + lightRaw + hydrantRaw + fireDoorRaw + pumpPoolRaw +
+        extinguisherRaw + lightAnnualRaw + lightPushTestRaw + hydrantRaw + fireDoorRaw + pumpPoolRaw +
         kitchenQtyRaw + kitchenLengthRaw +
         paintBoothRaw + cleanAgentSystemRaw + initDevicesRaw;
 
@@ -2148,7 +2156,8 @@ html {
         ["sensitivity", sensitivityRaw],
         ["backflow", backflowRaw && !backflowInSprinklerAnnual ? backflowRaw : 0],
         ["extinguisher", extinguisherRaw],
-        ["light", lightRaw],
+        ["light", lightAnnualRaw],
+        ["lightPushTest", lightPushTestRaw],
         ["hydrant", hydrantRaw],
         ["fireDoor", fireDoorRaw],
         ["pump", pumpPoolRaw],
@@ -2181,6 +2190,7 @@ html {
       const backflowBilled = poolAlloc.backflow;
       const extinguisherBilled = poolAlloc.extinguisher;
       const lightBilled = poolAlloc.light;
+      const lightPushTestBilled = poolAlloc.lightPushTest;
       const hydrantBilled = poolAlloc.hydrant;
       const fireDoorBilled = poolAlloc.fireDoor;
       const pumpBilled = poolAlloc.pump;
@@ -2360,12 +2370,17 @@ html {
       const extinguisherTotal = activeQty(rowById("extinguisher")) * extinguisherUnit;
       const tamperTotal = activeQty(rowById("tamperSeal")) * tamperUnit;
       const extinguisherReporting = activeQty(rowById("extinguisher")) ? extinguisherReportingUnit : 0;
-      const lightReporting = activeQty(rowById("emergencyLight")) ? lightReportingUnit : 0;
+      const lightReporting = (activeQty(rowById("emergencyLight")) || activeQty(rowById("lightPushTest"))) ? lightReportingUnit : 0;
       const lightOverride = Number(rowById("emergencyLight")?.unitPrice) || 0;
       const lightQty = activeQty(rowById("emergencyLight"));
       const lightDefaultUnit = lightQty > 0 && lightBilled > 0 ? round2((lightBilled * rate) / lightQty) : 0;
-      const lightUnit = lightOverride > 0 ? lightOverride : lightDefaultUnit;
-      const lightTotal = lightOverride > 0 ? (lightQty * lightOverride) : (lightBilled * rate);
+      const lightUnit = pushTestActive ? 0 : (lightOverride > 0 ? lightOverride : lightDefaultUnit);
+      const lightTotal = pushTestActive ? 0 : (lightOverride > 0 ? (lightQty * lightOverride) : (lightBilled * rate));
+      const lightPushTestQty = activeQty(rowById("lightPushTest"));
+      const lightPushTestOverride = Number(rowById("lightPushTest")?.unitPrice) || 0;
+      const lightPushTestDefaultUnit = lightPushTestQty > 0 && lightPushTestBilled > 0 ? round2((lightPushTestBilled * rate) / lightPushTestQty) : 0;
+      const lightPushTestUnit = lightPushTestOverride > 0 ? lightPushTestOverride : lightPushTestDefaultUnit;
+      const lightPushTestTotal = lightPushTestOverride > 0 ? (lightPushTestQty * lightPushTestOverride) : (lightPushTestBilled * rate);
       const hydrantOverride = Number(rowById("hydrant")?.unitPrice) || 0;
       const hydrantDefaultUnit = round2((loadedCost() * (20 / 60)) / (1 - targetMargin));
       const hydrantUnit = hydrantOverride > 0 ? hydrantOverride : hydrantDefaultUnit;
@@ -2527,16 +2542,16 @@ html {
       return {
         years, sensitivityYears, customerDiscountFactor, customerDiscountPct, customerDiscountActive, manualTargetPerYear, undiscountedTermSubtotal, multiYearQuoteSubtotal, multiYearVisitPricedTotal, multiYearInternalCost, actualMargin, salesTax, quoteGrandTotal,
         rate, targetMargin, sprinklerRaw, fireAlarmRaw, quarterlyRaw, semiRaw, sensitivityQty, backflowRaw, backflowInSprinklerAnnual, extinguisherRaw,
-        lightRaw, hydrantRaw, pumpRaw, pumpChurnRaw, monthlyExtRaw, monthlyLightRaw, totalMonthlyRaw, kitchenQtyRaw, kitchenLengthRaw, paintBoothRaw, cleanAgentSystemRaw, initDevicesRaw, cleanAgentPoolRaw, fireDoorRaw,
+        lightRaw, lightPushTestRaw, pushTestActive, hydrantRaw, pumpRaw, pumpChurnRaw, monthlyExtRaw, monthlyLightRaw, totalMonthlyRaw, kitchenQtyRaw, kitchenLengthRaw, paintBoothRaw, cleanAgentSystemRaw, initDevicesRaw, cleanAgentPoolRaw, fireDoorRaw,
         sprinklerBilled, fireAlarmBilled, quarterlyBilled, semiBilled, sensitivityBilled, backflowBilled, extinguisherBilled,
-        annualBilledHours, lightBilled, hydrantBilled, pumpBilled, pumpPricedBilled, pumpChurnBilled, monthlyExtBilled, monthlyLightBilled, totalMonthlyBilled, kitchenQtyBilled, kitchenLengthBilled, paintBoothBilled, cleanAgentPoolBilled, cleanAgentBilled, initDevicesBilled, fireDoorBilled, multiYearBilled, multiYearTotalHours,
+        annualBilledHours, lightBilled, lightPushTestBilled, hydrantBilled, pumpBilled, pumpPricedBilled, pumpChurnBilled, monthlyExtBilled, monthlyLightBilled, totalMonthlyBilled, kitchenQtyBilled, kitchenLengthBilled, paintBoothBilled, cleanAgentPoolBilled, cleanAgentBilled, initDevicesBilled, fireDoorBilled, multiYearBilled, multiYearTotalHours,
         combinedVisitPoolRaw, combinedVisitPoolBilled, quarterlyCombinedBilled, semiCombinedBilled,
         kitchenQtyAnnualBilled, kitchenQtyCombinedBilled, kitchenLengthAnnualBilled, kitchenLengthCombinedBilled,
         paintBoothAnnualBilled, paintBoothCombinedBilled,
         cleanAgentAnnualBilled, cleanAgentCombinedBilled, initDevicesAnnualBilled, initDevicesCombinedBilled,
         sprinklerAnnual, sprinklerReportingUnit, sprinklerReporting, quarterlyAnnual, fireAlarmAnnual, fireAlarmReportingUnit, fireAlarmReporting,
         sensitivityUnit, sensitivityTotal, semiTotal, backflowUnit, backflowTotal, backflowReportingUnit, backflowReporting,
-        extinguisherUnit, extinguisherTotal, tamperUnit, tamperTotal, extinguisherReportingUnit, extinguisherReporting, lightReportingUnit, lightReporting, lightUnit, lightTotal,
+        extinguisherUnit, extinguisherTotal, tamperUnit, tamperTotal, extinguisherReportingUnit, extinguisherReporting, lightReportingUnit, lightReporting, lightUnit, lightTotal, lightPushTestUnit, lightPushTestTotal,
         hydrantUnit, hydrantTotal, pumpUnit, pumpTotal, pumpChurnBlockPrice, pumpChurnLaborMonthly, pumpChurnTotal,
         monthlyExtUnit, monthlyExtMonthly, monthlyExtTotal, monthlyLightUnit, monthlyLightMonthly, monthlyLightTotal,
         monthlyVisitMonthly, monthlyVisitTotal, monthlyServiceChargeMonthly, monthlyServiceChargeTotal,
@@ -2616,6 +2631,10 @@ html {
         billed = totals.lightBilled;
         unit = totals.lightUnit;
         total = totals.lightTotal;
+      } else if (row.id === "lightPushTest") {
+        billed = totals.lightPushTestBilled;
+        unit = totals.lightPushTestUnit;
+        total = totals.lightPushTestTotal;
       } else if (row.id === "hydrant") {
         billed = totals.hydrantBilled;
         unit = isSprinklerOnJob() ? totals.rate : totals.hydrantUnit;
@@ -3144,8 +3163,9 @@ html {
       add(3, activeQty(rowById("extinguisher")) ? 1 : 0, "Extinguisher Reporting Fee", dates.annual, termFrequency("Annual"), totals.extinguisherReportingUnit, termTotal(totals.extinguisherReporting));
       add(3, activeQty(rowById("monthlyExtinguisher")), "NFPA 10 Monthly Inspection - Portable Fire Extinguishers: monthly visual inspection and verification of portable extinguishers.", dates.annual, monthlyFrequency, totals.monthlyExtUnit, termTotal(totals.monthlyExtTotal), "monthlyExtinguisher");
 
-      add(4, activeQty(rowById("emergencyLight")), "NFPA 101 Annual Inspection - Emergency / Exit Lights: operational test and visual inspection of emergency lighting and exit signs.", dates.annual, termFrequency("Annual"), totals.lightUnit, termTotal(totals.lightTotal), "emergencyLight");
-      add(4, activeQty(rowById("emergencyLight")) ? 1 : 0, "Emergency / Exit Light Reporting Fee", dates.annual, termFrequency("Annual"), totals.lightReportingUnit, termTotal(totals.lightReporting));
+      add(4, totals.pushTestActive ? 0 : activeQty(rowById("emergencyLight")), "NFPA 101 Annual Inspection - Emergency / Exit Lights: operational test and visual inspection of emergency lighting and exit signs.", dates.annual, termFrequency("Annual"), totals.lightUnit, termTotal(totals.lightTotal), "emergencyLight");
+      add(4, activeQty(rowById("lightPushTest")), "NFPA 101 Emergency / Exit Lights - Push Test Only: functional push-button (push test) verification of emergency lighting and exit signs, performed once with the annual inspection in lieu of the full annual operational test.", dates.annual, termFrequency("Annual"), totals.lightPushTestUnit, termTotal(totals.lightPushTestTotal), "lightPushTest");
+      add(4, (activeQty(rowById("emergencyLight")) || activeQty(rowById("lightPushTest"))) ? 1 : 0, "Emergency / Exit Light Reporting Fee", dates.annual, termFrequency("Annual"), totals.lightReportingUnit, termTotal(totals.lightReporting));
       add(4, activeQty(rowById("monthlyLight")), "NFPA 101 Monthly Inspection - Emergency / Exit Lights: monthly operational check of emergency lighting and exit signs.", dates.annual, monthlyFrequency, totals.monthlyLightUnit, termTotal(totals.monthlyLightTotal), "monthlyLight");
 
       add(5, activeQty(rowById("hydrant")), "NFPA 25 Annual Inspection - Fire Hydrant: inspection and testing of fire hydrant equipment.", dates.annual, termFrequency("Annual"), isSprinklerOnJob() ? totals.rate : totals.hydrantUnit, termTotal(totals.hydrantTotal), "hydrant");
@@ -3274,7 +3294,10 @@ html {
       if (activeQty(rowById("semiAnnual"))) annualServices.push("Semi-annual fire alarm inspection");
       if (activeQty(rowById("backflow"))) annualServices.push("Backflow inspection");
       if (activeQty(rowById("extinguisher"))) annualServices.push("Extinguishers and tamper seals");
-      if (activeQty(rowById("emergencyLight"))) annualServices.push("Emergency / exit lights");
+      const lightPushOnly = Boolean(rowById("lightPushTest")?.enabled) && activeQty(rowById("lightPushTest")) > 0;
+      if (activeQty(rowById("emergencyLight")) || lightPushOnly) annualServices.push(
+        lightPushOnly ? "Emergency / exit lights (push test only)" : "Emergency / exit lights"
+      );
       if (activeQty(rowById("hydrant"))) annualServices.push("Hydrant inspection");
       if (activeQty(rowById("firePump"))) annualServices.push("Fire pump inspection");
       if (activeQty(rowById("firePump")) && isChargedToCustomer(rowById("firePumpChurn"))) annualServices.push("Monthly fire pump churn tests");
@@ -3468,8 +3491,11 @@ html {
       const extinguisherUnit = totals.extinguisherUnit > 0 ? round(totals.extinguisherUnit) : 7;
       const tamperQty = activeQty(rowById("tamperSeal"));
       const tamperUnit = totals.tamperUnit > 0 ? round(totals.tamperUnit) : 1;
-      const lightQty = activeQty(rowById("emergencyLight"));
-      const lightUnit = totals.lightUnit > 0 ? round(totals.lightUnit) : round(rate * 10 / 60);
+      const lightPushOnly = Boolean(rowById("lightPushTest")?.enabled) && activeQty(rowById("lightPushTest")) > 0;
+      const lightQty = lightPushOnly ? activeQty(rowById("lightPushTest")) : activeQty(rowById("emergencyLight"));
+      const lightUnit = lightPushOnly
+        ? (totals.lightPushTestUnit > 0 ? round(totals.lightPushTestUnit) : round(rate * 2 / 60))
+        : (totals.lightUnit > 0 ? round(totals.lightUnit) : round(rate * 10 / 60));
       const pumpQty = activeQty(rowById("firePump"));
       const pumpUnit = totals.pumpUnit > 0 ? round(totals.pumpUnit) : round(rate * 240 / 60);
 
@@ -3510,7 +3536,7 @@ html {
           { service: "Extinguisher Reporting Fee", code: "NFPA 10", qty: extinguisherQty > 0 ? 1 : 0, unit: extinguisherReportingUnit, reporting: true },
         ] },
         { title: "EMERGENCY / EXIT LIGHTING", rows: [
-          { service: "Emergency / Exit Light - Annual Inspection", code: "NFPA 101", qty: lightQty, unit: lightUnit },
+          { service: lightPushOnly ? "Emergency / Exit Light - Push Test Only (Annual)" : "Emergency / Exit Light - Annual Inspection", code: "NFPA 101", qty: lightQty, unit: lightUnit },
           { service: "Emergency / Exit Light Reporting Fee", code: "NFPA 101", qty: lightQty > 0 ? 1 : 0, unit: lightReportingUnit, reporting: true },
         ] },
         { title: "FIRE PUMPS", rows: [
