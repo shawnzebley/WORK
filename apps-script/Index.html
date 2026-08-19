@@ -3095,12 +3095,12 @@ html {
       { id: "nacBooster", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "NAC Booster / Power Supply", min: 4, techs: 2, note: "4 min each" },
       { id: "voiceEvac", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Voice Evac", min: 60, techs: 2, note: "60 min each" },
       { id: "smokeAddr", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Smoke Detector", min: 3, techs: 2, note: "3 min each" },
-      { id: "smokeConv", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Smoke Detectors in Rooms", min: 3, techs: 2, note: "3 min each; drops to 2 min each when extinguishers are inspected." },
+      { id: "smokeConv", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Smoke Detectors in Rooms", min: 4, roomComboMin: 3, techs: 2, note: "4 min each when they are the only device we enter rooms for; 3 min each (common-area rate) when another in-room device type is on the job and both are inspected on the same trip into the room." },
       { id: "heatDetector", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Heat Detector", min: 4, techs: 2, note: "4 min each" },
       { id: "pullStation", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Manual Pull Station", min: 3, techs: 2, note: "3 min each" },
       { id: "ductSmoke", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Duct Smoke Detector", min: 10, techs: 2, note: "10 min each" },
       { id: "hornStrobe", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Horn / Strobe / Horn-Strobe Combo", min: 0.5, techs: 2, note: "0.5 min each" },
-      { id: "roomAv", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Audio Visual Devices in Rooms", min: 3, techs: 2, note: "3 min each; drops to 2 min each when extinguishers are inspected." },
+      { id: "roomAv", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Audio Visual Devices in Rooms", min: 4, roomComboMin: 3, techs: 2, note: "4 min each when they are the only device we enter rooms for; 3 min each (common-area rate) when another in-room device type is on the job and both are inspected on the same trip into the room." },
       { id: "magHolder", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Magnetic Door Holder", min: 5, techs: 2, note: "5 min each" },
       { id: "beamDetector", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Beam Detector", min: 6, techs: 2, note: "6 min each" },
       { id: "bell", group: "fireAlarmAnnual", enabled: true, qty: 0, freq: "A", desc: "Fire Hat", min: 5, techs: 2, note: "Use if not included in combo line" },
@@ -3125,9 +3125,9 @@ html {
       { id: "backflowPit", group: "backflow", enabled: false, qty: 0, binaryQty: true, freq: "A", desc: "Backflow in Pit", minLabel: "daily", techs: "", flat: 1, unitPrice: 249, note: "Check the box when the backflow is in a pit. Adds $249 per started 8-hour day of backflow inspection labor. Unit price is editable." },
       { kind: "fee", id: "backflowReporting", desc: "Reporting Fees", unitPrice: 35, note: "Editable backflow reporting fee. Default $35." },
 
-      { kind: "section", title: "FIRE EXTINGUISHERS & TAMPER SEALS (Annual) - 4 min each, 6 min each in units; absorbed into annual 2-tech sprinkler/alarm pool when present; standalone MIN 2-hr bill" },
+      { kind: "section", title: "FIRE EXTINGUISHERS & TAMPER SEALS (Annual) - 4 min each; 6 min each in units, dropping to 4 min when other in-room devices are inspected on the same trip; absorbed into annual 2-tech sprinkler/alarm pool when present; standalone MIN 2-hr bill" },
       { id: "extinguisher", group: "extinguisher", enabled: true, qty: 0, freq: "A", desc: "Fire Extinguisher (any type)", min: 4, techs: 1, unitPrice: 7, note: "4 min each. Flat extinguisher sell price is editable. Raw time is added once into the annual 2-tech sprinkler/alarm pool when present; it is not doubled or divided before rounding." },
-      { id: "extinguisherInUnit", group: "extinguisher", enabled: true, qty: 0, freq: "A", desc: "Fire Extinguishers in Units", min: 6, techs: 1, unitPrice: 7, note: "6 min each - extinguishers located inside occupied units/rooms take longer to access. Sell price is editable. Raw time pools with the rest of the extinguisher labor." },
+      { id: "extinguisherInUnit", group: "extinguisher", enabled: true, qty: 0, freq: "A", desc: "Fire Extinguishers in Units", min: 6, roomComboMin: 4, techs: 1, unitPrice: 7, note: "6 min each when they are the only device we enter units for - access, escort, and knock time is all on the extinguisher. Drops to 4 min each (the common-area extinguisher rate) when another in-room device type is on the job and both are inspected on the same trip into the unit. Sell price is editable. Raw time pools with the rest of the extinguisher labor." },
       { id: "tamperSeal", group: "extinguisher", enabled: true, qty: 0, autoQty: ["extinguisher", "extinguisherInUnit"], freq: "A", desc: "Tamper Seal", minLabel: "flat", techs: "", flat: 1, unitPrice: 1, note: "Qty auto-matches total extinguishers (standard + in-unit); sell price is editable. Our internal cost is fixed at $0.20 per seal." },
       { kind: "fee", id: "extinguisherReporting", desc: "Extinguisher Reporting Fee", unitPrice: 35, note: "Flat annual extinguisher reporting fee; default $35 whenever extinguishers are quoted." },
       { id: "monthlyExtinguisher", group: "extinguisher", enabled: false, qty: 0, autoQty: ["extinguisher", "extinguisherInUnit"], freq: "M", desc: "Monthly Extinguisher Inspection", min: 120, techs: 1, unitPrice: 5, note: "2 labor hours per monthly extinguisher visit when enabled; billed 11x/year. Qty auto-matches total extinguishers (standard + in-unit). Per-unit customer price is editable. Not auto-included with annual inspections; manually enable when quoting monthly service." },
@@ -3575,10 +3575,30 @@ html {
       return qty * minutes;
     }
 
+    // Devices that live inside occupied rooms / units. Their per-device time carries
+    // the access overhead - knocking, escorts, waiting - not just the inspection
+    // itself, so a single in-room device type is quoted above the common-area rate.
+    const ROOM_INSPECTION_ROW_IDS = ["smokeConv", "roomAv", "extinguisherInUnit"];
+
+    // How many distinct in-room device types are actually on this job. Two or more
+    // means the tech is already in the room and inspects them together, so the
+    // access overhead is paid once instead of once per device type.
+    function roomInspectionTypeCount() {
+      return ROOM_INSPECTION_ROW_IDS.filter((id) => activeQty(rowById(id)) > 0).length;
+    }
+
+    function isRoomInspectionRow(row) {
+      return !!row && ROOM_INSPECTION_ROW_IDS.includes(row.id);
+    }
+
+    // True when in-room devices can be knocked out on one trip into each room.
+    function roomInspectionsCombined() {
+      return roomInspectionTypeCount() > 1;
+    }
+
     function effectiveMinutesPerQty(row) {
       if (!row) return 0;
-      const isRoomInspectionItem = row.id === "smokeConv" || row.id === "roomAv";
-      if (isRoomInspectionItem && (activeQty(rowById("extinguisher")) + activeQty(rowById("extinguisherInUnit"))) > 0) return 2;
+      if (isRoomInspectionRow(row) && roomInspectionsCombined() && row.roomComboMin) return row.roomComboMin;
       return row.comboMin && isSprinklerOnJob() ? row.comboMin : row.min || 0;
     }
 
@@ -4702,8 +4722,8 @@ html {
           const extQtyText = [];
           const stdQty = activeQty(rowById("extinguisher"));
           const inUnitQty = activeQty(rowById("extinguisherInUnit"));
-          if (stdQty > 0) extQtyText.push(`${formatPlain(stdQty)} × ${formatPlain(rowById("extinguisher").min || 0)} min`);
-          if (inUnitQty > 0) extQtyText.push(`${formatPlain(inUnitQty)} in-unit × ${formatPlain(rowById("extinguisherInUnit").min || 0)} min`);
+          if (stdQty > 0) extQtyText.push(`${formatPlain(stdQty)} × ${formatPlain(effectiveMinutesPerQty(rowById("extinguisher")))} min`);
+          if (inUnitQty > 0) extQtyText.push(`${formatPlain(inUnitQty)} in-unit × ${formatPlain(effectiveMinutesPerQty(rowById("extinguisherInUnit")))} min`);
           const extMath = extQtyText.length ? `${extQtyText.join(" + ")} = ` : "";
           standaloneAdds.push(`standalone extinguishers ${extMath}${formatPlain(extStandaloneRaw)} min ÷ 60 = ${formatPlain(round2(extStandaloneRaw / 60))} raw hrs, rounded to 2-hr blocks with a 2-hr minimum = ${formatPlain(totals.extinguisherStandaloneBilled)} hrs`);
         }
