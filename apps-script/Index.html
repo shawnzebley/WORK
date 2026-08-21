@@ -3157,7 +3157,6 @@ html {
       { kind: "fee", id: "cleanAgentReporting", desc: "Clean Agent Reporting Fee", unitPrice: 35, note: "Editable annual Clean Agent reporting fee. Default $35." },
       { id: "fireDoor", group: "other", enabled: true, qty: 0, freq: "A", desc: "Fire Door Inspection", min: 60, techs: 1, note: "1 labor hour per fire door inspection line." },
       { kind: "fee", id: "fireDoorReporting", desc: "Fire Door Reporting Fee", unitPrice: 35, note: "Editable customer charge; default $35. Qty is 1 when fire door inspections are present." },
-      { id: "icePlug", group: "other", enabled: true, qty: 0, freq: "A", desc: "Ice Plug Test (per dry / pre-action system)", min: 30, techs: 1, unitPrice: 0, note: "30 min per system. Cold-storage / freezer dry and pre-action systems: investigation of low points, drum drips and the dry-pipe valve for ice obstruction. Raw labor folds into the annual visit pool. Enter unit price to override auto-calculated price." },
       { kind: "summary", id: "otherSubtotal", desc: "OTHER / ADD-ONS SUBTOTAL", note: "Rows 66, 68, 71, 73:80" }
     ];
 
@@ -3718,7 +3717,6 @@ html {
       const initDevicesRaw = rowMinutes(rowById("initDevices"));
       const cleanAgentPoolRaw = cleanAgentSystemRaw + initDevicesRaw;
       const fireDoorRaw = rowMinutes(rowById("fireDoor"));
-      const icePlugRaw = rowMinutes(rowById("icePlug"));
 
       // Pool all annual-visit raw minutes into one bucket BEFORE rounding so a
       // single ceiling is shared across the visit. Semi-annual services
@@ -3740,7 +3738,7 @@ html {
       const annualPoolRawMinutes =
         sprinklerPoolRaw + fireAlarmRaw + sensitivityRaw +
         backflowRaw +
-        extinguisherRaw + lightRaw + oneTimeLightRaw + hydrantRaw + fireDoorRaw + icePlugRaw + pumpPoolRaw +
+        extinguisherRaw + lightRaw + oneTimeLightRaw + hydrantRaw + fireDoorRaw + pumpPoolRaw +
         paintBoothRaw + cleanAgentSystemRaw + initDevicesRaw;
 
       // Annual labor block rule:
@@ -3766,11 +3764,11 @@ html {
       const extinguisherStandaloneRaw = extinguisherAbsorbedInAnnualPool ? 0 : extinguisherRaw;
       const annualFourHourPoolRawMinutes =
         sprinklerPoolRaw + fireAlarmRaw + sensitivityRaw +
-        backflowRaw + hydrantRaw + fireDoorRaw + icePlugRaw + pumpPoolRaw + extinguisherPoolRaw + oneTimeLightRaw +
+        backflowRaw + hydrantRaw + fireDoorRaw + pumpPoolRaw + extinguisherPoolRaw + oneTimeLightRaw +
         paintBoothRaw + cleanAgentSystemRaw + initDevicesRaw;
       const pumpOnlyAnnualBlockItem = pumpPoolRaw > 0 &&
         !sprinklerPoolRaw && !fireAlarmRaw && !sensitivityRaw &&
-        !backflowRaw && !hydrantRaw && !fireDoorRaw && !icePlugRaw && !oneTimeLightRaw &&
+        !backflowRaw && !hydrantRaw && !fireDoorRaw && !oneTimeLightRaw &&
         !paintBoothRaw && !cleanAgentSystemRaw && !initDevicesRaw;
       const annualFourHourPoolTechs = annualHasTwoTechJob ? 2 : 1;
       const annualFourHourPoolBlockHours = annualHasTwoTechJob ? 8 : 4;
@@ -3798,7 +3796,6 @@ html {
         ["hydrant", hydrantRaw],
         ["oneTimeLight", oneTimeLightRaw],
         ["fireDoor", fireDoorRaw],
-        ["icePlug", icePlugRaw],
         ["electricPump", electricPumpPoolRaw],
         ["dieselPump", dieselPumpPoolRaw],
         ["paintBoothAnnual", paintBoothRaw],
@@ -3848,7 +3845,7 @@ html {
       const annualPricingPoolRawMinutes = Math.max(0, annualFourHourPoolRawMinutes - sensitivityRaw);
       const annualPricingPumpOnlyBlockItem = pumpPoolRaw > 0 &&
         !sprinklerPoolRaw && !fireAlarmRaw &&
-        !backflowRaw && !hydrantRaw && !fireDoorRaw && !icePlugRaw && !oneTimeLightRaw &&
+        !backflowRaw && !hydrantRaw && !fireDoorRaw && !oneTimeLightRaw &&
         !paintBoothRaw && !cleanAgentSystemRaw && !initDevicesRaw;
       const annualPricingPoolCrewHours = annualPricingPoolRawMinutes
         ? ceilTo(annualPricingPoolRawMinutes / 60, annualFourHourPoolBlockHours)
@@ -3875,7 +3872,6 @@ html {
       const oneTimeLightBilled = pricingPoolAlloc.oneTimeLight || 0;
       const hydrantBilled = pricingPoolAlloc.hydrant;
       const fireDoorBilled = pricingPoolAlloc.fireDoor;
-      const icePlugBilled = pricingPoolAlloc.icePlug;
       const electricPumpAllocatedBilled = pricingPoolAlloc.electricPump || 0;
       const dieselPumpAllocatedBilled = pricingPoolAlloc.dieselPump || 0;
       // Display fire pumps at their intended fixed labor basis. Their raw minutes
@@ -4193,16 +4189,7 @@ html {
       const cleanAgentReporting = cleanAgentSystems * cleanAgentReportingUnit;
       const fireDoorTotal = fireDoorBilled * rate;
       const fireDoorReporting = activeQty(rowById("fireDoor")) ? fireDoorReportingUnit : 0;
-      // Ice plug testing prices off its allocated share of the annual labor pool
-      // unless a per-system unit price is entered on the row.
-      const icePlugOverride = Number(rowById("icePlug")?.unitPrice) || 0;
-      const icePlugQty = activeQty(rowById("icePlug"));
-      const icePlugDefaultUnit = icePlugQty > 0 && icePlugBilled > 0
-        ? round2((icePlugBilled * rate) / icePlugQty)
-        : round2(rate * (30 / 60));
-      const icePlugUnit = icePlugOverride > 0 ? icePlugOverride : icePlugDefaultUnit;
-      const icePlugTotal = icePlugOverride > 0 ? (icePlugQty * icePlugOverride) : (icePlugBilled * rate);
-      const otherSubtotal = backflowTotal + backflowPitTotal + extinguisherTotal + extinguisherInUnitTotal + tamperTotal + extinguisherReporting + lightTotal + oneTimeLightTotal + hydrantTotal + pumpTotal + dieselPumpTotal + monthlyVisitTotal + pumpReporting + fireDoorTotal + fireDoorReporting + icePlugTotal;
+      const otherSubtotal = backflowTotal + backflowPitTotal + extinguisherTotal + extinguisherInUnitTotal + tamperTotal + extinguisherReporting + lightTotal + oneTimeLightTotal + hydrantTotal + pumpTotal + dieselPumpTotal + monthlyVisitTotal + pumpReporting + fireDoorTotal + fireDoorReporting;
 
       // Per-visit splits use the actual pool allocations (annual vs combined)
       // instead of dividing the total in half, since pool composition can differ
@@ -4436,9 +4423,9 @@ html {
       return {
         years, sensitivityYears, reportingFeesIncluded, liftRequired, annualLiftCharge, annualLiftCost, fixedLiftTermSubtotal, fixedBackflowPitTermSubtotal, allReportingTermSubtotal, customerDiscountFactor, customerDiscountPct, customerDiscountActive, manualTargetPerYear, manualServiceTargetTerm, undiscountedTermSubtotal, undiscountedServiceTermSubtotal, fixedReportingTermSubtotal, fixedServiceChargeTermSubtotal, fixedServiceNonDiscountableTermSubtotal, fixedNonDiscountableTermSubtotal, discountableTermSubtotal, customerServiceTermSubtotal, customerQuoteSubtotal, customerSalesTax, customerGrandTotal, billingInstallments, installmentUplift, payableSubtotal, payableSalesTax, payableGrandTotal, installmentAmount, annualReportingSubtotal: includedAnnualReportingSubtotal, allAnnualReportingSubtotal: annualReportingSubtotal, annualServiceChargeSubtotal, noSmokeAnnualServiceChargeSubtotal, multiYearQuoteSubtotal, multiYearVisitPricedTotal, multiYearInternalCost, autoMargin, actualMargin, autoPriceLevel, priceLevel, salesTax, quoteGrandTotal,
         rate, sprinklerRaw, sprinklerPoolRaw, pumpJoinsSprinklerBucket, pumpOnlyAnnualBlockItem, fireAlarmRaw, quarterlyRaw, semiRaw, sensitivityQty, sensitivityRaw, backflowRaw, backflowInSprinklerAnnual, extinguisherRaw, extinguisherRawStandard, extinguisherRawInUnit, extinguisherTotalQty, extinguisherAbsorbedInAnnualPool, extinguisherPoolRaw, extinguisherStandaloneRaw, annualPoolRawMinutes, annualFourHourPoolRawMinutes, annualFourHourPoolTechs, annualFourHourPoolBlockHours, annualFourHourPoolCrewHours, annualFourHourPoolBilledHours, extinguisherStandaloneBilled, lightStandaloneBilled, annualPricingPoolRawMinutes, annualPricingPoolCrewHours, annualPricingPoolBilledHours,
-        lightRaw, hydrantRaw, electricPumpRaw, dieselPumpRaw, pumpRaw, pumpChurnRaw, monthlyExtRaw, monthlyLightRaw, oneTimeLightRaw, totalMonthlyRaw, kitchenQtyRaw, paintBoothRaw, cleanAgentSystemRaw, initDevicesRaw, cleanAgentPoolRaw, fireDoorRaw, icePlugRaw,
+        lightRaw, hydrantRaw, electricPumpRaw, dieselPumpRaw, pumpRaw, pumpChurnRaw, monthlyExtRaw, monthlyLightRaw, oneTimeLightRaw, totalMonthlyRaw, kitchenQtyRaw, paintBoothRaw, cleanAgentSystemRaw, initDevicesRaw, cleanAgentPoolRaw, fireDoorRaw,
         sprinklerBilled, fireAlarmBilled, quarterlyBilled, quarterlyVisitCount, quarterlyStandaloneVisitCount, semiBilled, electricPumpSemiBilled, dieselPumpSemiBilled, sensitivityBilled, backflowBilled, extinguisherBilled, extinguisherStandardBilled, extinguisherInUnitBilled,
-        annualBilledHours, annualCustomerChargeBilledHours, noSmokeAnnualBilledHours, noSmokeAnnualCustomerChargeBilledHours, lightBilled, hydrantBilled, electricPumpBilled, dieselPumpBilled, pumpBilled, electricPumpPricedBilled, dieselPumpPricedBilled, pumpPricedBilled, pumpChurnBilled, monthlyExtBilled, monthlyLightBilled, oneTimeLightBilled, totalMonthlyBilled, kitchenQtyBilled, paintBoothBilled, cleanAgentPoolBilled, cleanAgentBilled, initDevicesBilled, fireDoorBilled, icePlugBilled,
+        annualBilledHours, annualCustomerChargeBilledHours, noSmokeAnnualBilledHours, noSmokeAnnualCustomerChargeBilledHours, lightBilled, hydrantBilled, electricPumpBilled, dieselPumpBilled, pumpBilled, electricPumpPricedBilled, dieselPumpPricedBilled, pumpPricedBilled, pumpChurnBilled, monthlyExtBilled, monthlyLightBilled, oneTimeLightBilled, totalMonthlyBilled, kitchenQtyBilled, paintBoothBilled, cleanAgentPoolBilled, cleanAgentBilled, initDevicesBilled, fireDoorBilled,
         combinedVisitPoolRaw, combinedVisitBlock, combinedVisitCrewBilled, combinedVisitPoolBilled, combinedVisitTechsForLabor, quarterlyNeedsTwoTech, quarterlyVisitBlock, quarterlyCrewBilled, quarterlyCombinedBilled, semiCombinedBilled,
         kitchenQtyAnnualBilled, kitchenQtyCombinedBilled,
         paintBoothAnnualBilled, paintBoothCombinedBilled,
@@ -4456,7 +4443,7 @@ html {
         cleanAgentPerVisitHours, cleanAgentPerVisitCost, cleanAgentPerVisitReporting, cleanAgentSystems, cleanAgentInitiatingDevices, cleanAgentSubSystems, cleanAgentSubInitiatingDevices, cleanAgentSubcontractorCost,
         kitchenQtyPerVisitCost, kitchenQtyCombinedVisitCost, kitchenPerVisitReporting, kitchenAnnualVisitCost, kitchenCombinedVisitCost,
         kitchenSystems, kitchenTanksQty, kitchenLinksQty, kitchenSubServiceCalls, kitchenSubSystems, kitchenSubTanks, kitchenSubLinks, kitchenSubcontractorCost, kitchenCustomerTotal, kitchenVisitTotal,
-        fireDoorTotal, fireDoorReportingUnit, fireDoorReporting, icePlugQty, icePlugUnit, icePlugTotal, otherSubtotal, annualVisitSubtotal, noSmokeAnnualVisitSubtotal, annualVisitBilledHours, combinedQuarterlySemi, otherQuarterly,
+        fireDoorTotal, fireDoorReportingUnit, fireDoorReporting, otherSubtotal, annualVisitSubtotal, noSmokeAnnualVisitSubtotal, annualVisitBilledHours, combinedQuarterlySemi, otherQuarterly,
         visitPricedTotal, noSmokeVisitPricedTotal, totalLaborHours, totalServiceChargeHours, internalReportCost: includedInternalReportCost, allInternalReportCost: internalReportCost, internalCost: quotedInternalCost, noSmokeInternalCost: quotedNoSmokeInternalCost, finalSubtotal: quotedFinalSubtotal, noSmokeSubtotal: quotedNoSmokeSubtotal,
         visitChargeAnnualHours, noSmokeVisitChargeAnnualHours, visitChargeCombinedHours, visitChargeQuarterlyHours, visitChargeMonthlyHours, visitChargeOneTimeHours, totalDriveChargeHours,
         driveChargeAnnualHours, noSmokeDriveChargeAnnualHours, driveChargeCombinedHours, driveChargeQuarterlyHours, driveChargeMonthlyHours, driveChargeOneTimeHours,
@@ -4484,8 +4471,7 @@ html {
         activeQty(rowById("paintBooth")),
         activeQty(rowById("cleanAgent")),
         activeQty(rowById("initDevices")),
-        activeQty(rowById("fireDoor")),
-        activeQty(rowById("icePlug"))
+        activeQty(rowById("fireDoor"))
       ];
       return lines.filter(Boolean).length > 1;
     }
@@ -4594,10 +4580,6 @@ html {
         raw = ""; billed = ""; techs = "";
         unit = totals.initDevicesUnit;
         total = totals.initDevicesTotal;
-      } else if (row.id === "icePlug") {
-        billed = totals.icePlugBilled;
-        unit = totals.icePlugUnit;
-        total = totals.icePlugTotal;
       } else if (row.id === "fireDoor") {
         billed = totals.fireDoorBilled;
         unit = totals.rate;
@@ -5458,8 +5440,6 @@ html {
       add(0, sumQty([rowById("wet"), rowById("dry"), rowById("preAction")]), "Sprinkler Reporting Fees", dates.annual, termFrequency("Annual"), totals.sprinklerReportingUnit, termTotal(totals.sprinklerReporting));
       add(0, 3 * totals.years, "NFPA 25 Quarterly Inspection - Fire Sprinkler Systems: recurring visual inspection and testing. Annual visit satisfies Q1.", dates.q, termFrequency("Quarterly"), totals.quarterlyAnnual ? totals.quarterlyAnnual / 3 : 0, termTotal(totals.quarterlyAnnual), "quarterlyVisit");
 
-      add(0, activeQty(rowById("icePlug")), "NFPA 25 Annual Ice Plug Test - Dry-Pipe / Pre-Action Systems in Freezer & Cold-Storage Areas: investigation of the system for ice obstruction. Scope: verify the dry-pipe valve room and cold-storage piping are maintained at the required temperature and record readings; internally inspect the dry-pipe / pre-action valve and priming chamber for ice; open, drain and clear every accessible low point and drum drip and verify each drains freely; check the air supply, air pressure maintenance device and air dryer for moisture carry-over; inspect accessible piping, fittings, hangers and sprinklers in refrigerated spaces for frost, ice build-up, leakage and physical damage; verify pitch and drainage of piping serving the refrigerated area; perform a main drain test and record static and residual pressures; restore the system to service, verify normal air and water pressures, and document any ice obstruction, blocked low point or condition requiring corrective action.", dates.annual, termFrequency("Annual"), totals.icePlugUnit, termTotal(totals.icePlugTotal), "icePlug");
-
       add(1, activeQty(rowById("addrPanel")), `NFPA 72 Annual Inspection - Fire Alarm System: inspection and functional testing of listed initiating, notification, control, and power devices. Scope: ${serviceSummary("fireAlarmAnnual")}`, dates.annual, termFrequency("Annual"), totals.fireAlarmAnnual || 0, termTotal(totals.fireAlarmAnnual));
       if (!activeQty(rowById("addrPanel")) && activeQty(rowById("convPanel"))) {
         add(1, activeQty(rowById("convPanel")), "Monitoring Dialer Inspection", dates.annual, termFrequency("Annual"), totals.fireAlarmAnnual / activeQty(rowById("convPanel")), termTotal(totals.fireAlarmAnnual), "convPanel");
@@ -5680,7 +5660,6 @@ html {
       if (activeQty(rowById("cleanAgent"))) annualServices.push("Clean agent (halocarbon/inert) system");
       if (activeQty(rowById("initDevices"))) annualServices.push("Clean agent initiating devices");
       if (activeQty(rowById("fireDoor"))) annualServices.push("Fire door inspection");
-      if (activeQty(rowById("icePlug"))) annualServices.push("Ice plug test");
 
       return Array.from({ length: totals.years }, (_, index) => {
         const hasSensitivity = Boolean(smokeSensitivityYears[index]);
@@ -7495,7 +7474,6 @@ html {
 
       add(qty("kitchenQty"), "Kitchen Suppression System(s)", "Semi-Annual (2)");
       add(qty("cleanAgent"), "Clean Agent System(s)", "Semi-Annual (2)");
-      add(qty("icePlug"), "Ice Plug Test - Dry / Pre-Action System(s)", "Annual (1)");
 
       return rows;
     }
@@ -7840,50 +7818,6 @@ html {
         out += lead("Inspection Reports – ", inspReports);
       }
 
-      return out;
-    }
-
-    // Returns WordprocessingML for the Ice Plug Test description page. Rendered
-    // only when ice plug testing is quoted, and formatted to match the other
-    // auto-populated service description pages.
-    function agreementIcePlugDescription() {
-      const qty = agreementQty("icePlug");
-      if (qty <= 0) return "";
-      const { pageBreak, heading, lead, para, bullet, blank, serviceReport, inspReports } = agreementDescriptionParts();
-      let out = pageBreak;
-      out += heading("Ice Plug Testing & Inspection");
-      out += lead(
-        "Scope \u2013 ",
-        "SLS will test & inspect " + agreementCountText(qty) + " dry-pipe and/or pre-action fire sprinkler system(s) " +
-          "serving freezer, cooler and other refrigerated or unheated areas, as listed on the attached Scope of Work, " +
-          "for ice obstruction (ice plugs) within the system piping and valve trim."
-      );
-      out += blank;
-      out += para(serviceReport);
-      out += blank;
-      out += lead(
-        "Testing & Inspection Frequency \u2013 ",
-        "SLS will perform one (1) annual ice plug test and inspection on each system listed above, in accordance " +
-          "with the most recent edition of NFPA 25 \u2013 Inspection, Testing and Maintenance of Water-Based Fire " +
-          "Protection Systems.  The following will be performed during the scheduled inspection:"
-      );
-      out += bullet("Verify the dry-pipe valve room and refrigerated-area piping are maintained at the required temperature and record the readings");
-      out += bullet("Internally inspect the dry-pipe or pre-action valve, priming chamber and valve trim for ice formation");
-      out += bullet("Open, drain and clear each accessible low point and drum drip and verify that each drains freely");
-      out += bullet("Check the air supply, air pressure maintenance device (compressor) and air dryer for moisture carry-over into the system");
-      out += bullet("Inspect accessible piping, fittings, hangers and sprinklers in refrigerated spaces for frost, ice build-up, leakage and physical damage");
-      out += bullet("Verify the pitch and drainage of piping serving the refrigerated area");
-      out += bullet("Perform a Main Drain Test and record static and residual pressures");
-      out += bullet("Restore the system to service and verify normal air and water pressures");
-      out += bullet("Document any ice obstruction, blocked low point, or condition requiring corrective action");
-      out += blank;
-      out += lead("Inspection Reports \u2013 ", inspReports);
-      out += blank;
-      out += para(
-        "Note: Removal of ice plugs, thawing, pipe or fitting replacement, heat tracing, air dryer or compressor " +
-          "repairs, insulation work, and any corrective action arising from the inspection are not included unless " +
-          "otherwise specified in the Special Provisions; additional charges will be incurred for these services."
-      );
       return out;
     }
 
@@ -8511,7 +8445,6 @@ html {
           agreementElevatorDescription() +
           agreementSprinklerDescription() +
           agreementBackflowDescription() +
-          agreementIcePlugDescription() +
           agreementEmergencyLightDescription() +
           agreementPushOnlyEmergencyLightDescription() +
           agreementKitchenPaintDescription() +
@@ -8587,6 +8520,7 @@ html {
       { id:"i5Gauge", cycle:"5-Year", desc:"System Gauge Replacement / Calibration", techs:1, hrs:0.25, add:0, page:"5-Year Water-Based System Tests", group:"fiveFlow" },
       { id:"iObstruction", cycle:"As Needed", desc:"Obstruction Investigation", techs:2, hrs:4.0, add:0, page:"Obstruction Investigation / Flushing", group:"obstruction" },
       { id:"iFlush", cycle:"As Needed", desc:"System / Branch-Line Flushing", techs:2, hrs:4.0, add:0, page:"Obstruction Investigation / Flushing", group:"obstruction" },
+      { id:"iIcePlug", cycle:"As Needed", desc:"Ice Plug Test / Cold-Storage Ice Obstruction Investigation", techs:1, hrs:2.5, add:0, page:"Ice Plug Investigation", group:"icePlug" },
       { id:"iDrainRestore", cycle:"One-Time", desc:"System Drain, Refill & Return to Service", techs:2, hrs:1.0, add:0, page:"System Restoration", group:"restore" },
       { id:"iFireWatch", cycle:"One-Time", desc:"Fire Watch / Impairment Support", techs:1, hrs:1.0, add:0, page:"Impairment / Fire Watch Support", group:"support" },
       { id:"iCustom1", cycle:"One-Time", desc:"Custom Internal Inspection Service 1", techs:1, hrs:1.0, add:0, page:"Other Internal Inspection Services", group:"custom", editable:true },
@@ -8924,6 +8858,24 @@ html {
         out+=para('Replacement of deteriorated pipe, sprinklers, fittings, valves, or other damaged components is excluded unless specifically listed. Water containment, remediation, and extraordinary disposal requirements are also excluded unless stated in Special Provisions.');
       }
 
+      if(hasGroup('icePlug')){
+        out+=pageBreak+heading('Ice Plug Investigation')+blank;
+        out+=lead('Scope - ','SLS will test and investigate the dry-pipe and/or pre-action fire sprinkler system(s) serving freezer, cooler, and other refrigerated or unheated areas listed on the attached Scope of Work for ice obstruction (ice plugs) within the system piping, low points, and valve trim.');
+        out+=blank+para(serviceReport)+blank;
+        out+=lead('Testing & Investigation - ','Work will be coordinated as a planned impairment. The affected system will be placed in test condition, opened at the accessible points required for the investigation, and returned to service on completion.');
+        out+=bullet('Verify the dry-pipe valve room and refrigerated-area piping are maintained at the required temperature and record the readings');
+        out+=bullet('Internally inspect the dry-pipe or pre-action valve, priming chamber, and valve trim for ice formation');
+        out+=bullet('Open, drain, and clear each accessible low point and drum drip and verify that each drains freely');
+        out+=bullet('Check the air supply, air pressure maintenance device (compressor), and air dryer for moisture carry-over into the system');
+        out+=bullet('Inspect accessible piping, fittings, hangers, and sprinklers in refrigerated spaces for frost, ice build-up, leakage, and physical damage');
+        out+=bullet('Verify the pitch and drainage of piping serving the refrigerated area');
+        out+=bullet('Perform a main drain test and record static and residual pressures');
+        out+=bullet('Restore the system to service, verify normal air and water pressures, and confirm normal valve positions');
+        out+=bullet('Document any ice obstruction, blocked low point, or condition requiring corrective action');
+        out+=blank+lead('Inspection Reports - ',inspReports)+blank;
+        out+=para('Note: Removal of ice plugs, thawing, pipe or fitting replacement, heat tracing, air dryer or compressor repairs, insulation work, and any corrective work identified during the investigation are excluded unless specifically listed on the Scope of Work or Special Provisions.');
+      }
+
       if(hasGroup('restore')){
         out+=pageBreak+heading('System Drain, Refill & Return to Service')+blank;
         out+=lead('Scope - ','SLS will provide the selected system drain, refill, reset, and return-to-service labor associated with the internal inspection work.');
@@ -9030,7 +8982,10 @@ html {
         xml=internalRemoveBlock(xml,'Fire Pump Testing and Inspection Services','Portable Fire Extinguishers',false);
         xml=internalRemoveBlock(xml,'Portable Fire Extinguishers','quantity noted on the Equipment List',true);
         xml=injectBeforeSpecialProvisions(xml,internalAgreementDescriptions(t),agreementDescriptionParts().pageBreak);
-        xml=xml.replace('[[EQUIPMENT_ROWS]]',agreementEquipmentRows(internalAgreementScopeItems(t)));
+        // agreementEquipmentRows() does not exist in this build; the Scope of Work
+        // table is rebuilt at the marker by replaceAgreementScopeTable(), the same
+        // helper the inspection agreement uses.
+        xml=replaceAgreementScopeTable(xml,internalAgreementScopeItems(t));
 
         xml=xml.split('Inspection Service Agreement').join('Internal Inspection Service Agreement');
         xml=xml.split('Equipment List').join('Scope of Work');
