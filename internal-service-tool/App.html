@@ -1,0 +1,904 @@
+<script>
+    /* ===== Shared helpers (same behavior as the inspection tool) ===== */
+    function $(id) { return document.getElementById(id); }
+    const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+    function round2(value) { return Math.round((Number(value) || 0) * 100) / 100; }
+    function escapeHtml(value) {
+      return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+    }
+    function formatPlain(value) { return round2(value).toLocaleString("en-US", { maximumFractionDigits: 2 }); }
+    function isoDate(date) {
+      const d = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return d.toISOString().slice(0, 10);
+    }
+    function stampPrintDate() { return isoDate(new Date()); }
+
+    function serverCall(name, ...args) {
+      return new Promise((resolve, reject) => {
+        google.script.run.withSuccessHandler(resolve).withFailureHandler((error) =>
+          reject(new Error(error && error.message ? error.message : String(error))))[name](...args);
+      });
+    }
+
+    /* ===== System information (pulled from the inspection account) =====
+       `from` lists the inspection-tool row ids summed into each count. Rows with
+       no `from` are not tracked by the inspection tool and are entered here. */
+    const systemFields = [
+      { id:"wet", label:"Wet Pipe Systems", from:["wet"] },
+      { id:"dry", label:"Dry Pipe Systems", from:["dry"] },
+      { id:"preAction", label:"Pre-Action Systems", from:["preAction"] },
+      { id:"antiFreeze", label:"Anti-Freeze Loops", from:["antiFreeze"] },
+      { id:"standpipe", label:"Standpipes", from:["standpipe"] },
+      { id:"fdc", label:"Fire Dept. Connections", from:["fdc"] },
+      { id:"prv", label:"Pressure Reducing Valves", from:["prv"] },
+      { id:"controlValve", label:"Control Valves", from:["controlValve"] },
+      { id:"lowPoint", label:"Low Point Drains", from:["fireHose"] },
+      { id:"hydrant", label:"Hydrants", from:["hydrant"] },
+      { id:"backflow", label:"Backflow Preventers", from:["backflow","backflowPit"] },
+      { id:"firePump", label:"Fire Pumps", from:["firePump","dieselFirePump"] },
+      { id:"extinguishers", label:"Fire Extinguishers", from:["extinguisher","extinguisherInUnit"] },
+      { id:"smokes", label:"System Smoke Detectors", from:["smokeAddr","smokeConv"] },
+      { id:"heat", label:"Heat Detectors", from:["heatDetector"] },
+      { id:"batteries", label:"FA Batteries", from:["batteries"] },
+      { id:"panels", label:"Alarm Panels", from:["addrPanel"] },
+      { id:"tanks", label:"Water Storage Tanks" },
+      { id:"smokeAlarms", label:"Smoke Alarms (single-station)" },
+      { id:"coDevices", label:"CO Detectors / Alarms" }
+    ];
+    function sys(id) { const el=$("sys-"+id); return el ? Math.max(0, Number(el.value)||0) : 0; }
+
+    /* ===== Multi-year service catalog =====
+       Hours carried over from the inspection tool's internal service tool stay as they were.
+       New lines ship with 0 hours / $0 and show "Set rate" until a rate is entered and saved
+       with "Save rates as defaults". Flat lines bill qty x $/Unit; hours on them only feed
+       internal cost. */
+    const internalServiceCatalog = [
+      { section:"NFPA 25 — Sprinkler, Standpipe & Water Supply" },
+      { id:"i3DryTrip", cycle:"3-Year", ref:"NFPA 25 Ch. 13", desc:"Dry Pipe System Full-Flow Trip Test", techs:2, hrs:2.0, add:0, page:"3-Year Dry / Pre-Action Testing", group:"three", auto:()=>sys("dry") },
+      { id:"i3Preaction", cycle:"3-Year", ref:"NFPA 25 Ch. 13", desc:"Pre-Action System Full-Flow / Functional Trip Test", techs:2, hrs:2.5, add:0, page:"3-Year Dry / Pre-Action Testing", group:"three", auto:()=>sys("preAction") },
+      { id:"i3Leakage", cycle:"3-Year", ref:"NFPA 25 Ch. 13", desc:"Dry / Pre-Action Air Leakage Test (where applicable)", techs:1, hrs:2.0, add:0, page:"3-Year Dry / Pre-Action Testing", group:"three", auto:()=>sys("dry")+sys("preAction") },
+      { id:"i3TankSteel", cycle:"3-Year", ref:"NFPA 25 Ch. 9", desc:"Water Storage Tank Interior Inspection - steel tanks without corrosion protection", techs:2, hrs:0, add:0, page:"Water Storage Tank Interior Inspection", group:"tank", auto:()=>0 },
+      { id:"i5InspectionAuto", cycle:"5-Year", ref:"NFPA 25 Ch. 13 & 14", desc:"5-Year Internal Inspection Bundle - piping, valves, strainers and applicable system components", techs:1, hrs:0, add:0, page:"5-Year Internal Inspection", group:"fivePipe", pricing:"inspectionFiveYear", autoFromInspection:true },
+      { id:"i5AlarmValve", cycle:"5-Year", ref:"NFPA 25 Ch. 13", desc:"Alarm Valve Internal Inspection (outside the bundle)", techs:1, hrs:0, add:0, page:"5-Year Valve / Component Internal Inspection", group:"fiveValve", auto:()=>sys("wet") },
+      { id:"i5CheckValve", cycle:"5-Year", ref:"NFPA 25 Ch. 13", desc:"Check Valve Internal Inspection (outside the bundle)", techs:1, hrs:0, add:0, page:"5-Year Valve / Component Internal Inspection", group:"fiveValve", auto:()=>0 },
+      { id:"i5PreactionValve", cycle:"5-Year", ref:"NFPA 25 Ch. 13", desc:"Pre-Action / Deluge Valve Internal Inspection (outside the bundle)", techs:1, hrs:0, add:0, page:"5-Year Valve / Component Internal Inspection", group:"fiveValve", auto:()=>sys("preAction") },
+      { id:"i5Strainer", cycle:"5-Year", ref:"NFPA 25 Ch. 13", desc:"Strainers, Filters & Restricted Orifices Internal Inspection (outside the bundle)", techs:1, hrs:0, add:0, page:"5-Year Valve / Component Internal Inspection", group:"fiveValve", auto:()=>0 },
+      { id:"i5Fdc", cycle:"5-Year", ref:"NFPA 25 Ch. 6 & 13", desc:"Fire Department Connection Piping Hydrostatic Test", techs:2, hrs:2.0, add:0, page:"5-Year Water-Based System Tests", group:"fiveFlow", auto:()=>sys("fdc") },
+      { id:"i5Standpipe", cycle:"5-Year", ref:"NFPA 25 Ch. 6", desc:"Standpipe Flow Test", techs:2, hrs:2.0, add:0, page:"5-Year Water-Based System Tests", group:"fiveFlow", auto:()=>sys("standpipe") },
+      { id:"i5Prv", cycle:"5-Year", ref:"NFPA 25 Ch. 13", desc:"Pressure-Reducing Valve Full-Flow Test", techs:2, hrs:1.5, add:0, page:"5-Year Water-Based System Tests", group:"fiveFlow", auto:()=>sys("prv") },
+      { id:"i5Hydrant", cycle:"5-Year", ref:"NFPA 25 Ch. 7", desc:"Private Fire Main / Hydrant Water-Supply Flow Test", techs:2, hrs:1.0, add:0, page:"5-Year Water-Based System Tests", group:"fiveFlow", auto:()=>sys("hydrant")>0?1:0 },
+      { id:"i5Gauge", cycle:"5-Year", ref:"NFPA 25 Ch. 5 & 13", desc:"System Gauge Replacement / Calibration", techs:1, hrs:0.25, add:0, page:"5-Year Water-Based System Tests", group:"fiveFlow", auto:()=>2*(sys("wet")+sys("dry")+sys("preAction")) },
+      { id:"i5TankOther", cycle:"5-Year", ref:"NFPA 25 Ch. 9", desc:"Water Storage Tank Interior Inspection - all other tanks", techs:2, hrs:0, add:0, page:"Water Storage Tank Interior Inspection", group:"tank", auto:()=>sys("tanks") },
+      { id:"i5Harsh", cycle:"5-Year", ref:"NFPA 25 Ch. 5", desc:"Sprinklers in Harsh / Corrosive Environments - sample lab test", techs:1, hrs:0, add:0, page:"Sprinkler Sample Testing", group:"sprinklerSample", auto:()=>0 },
+      { id:"i5ExtraHigh", cycle:"5-Year", ref:"NFPA 25 Ch. 5", desc:"Extra-High Temperature Sprinklers (325°F and up) - sample lab test", techs:1, hrs:0, add:0, page:"Sprinkler Sample Testing", group:"sprinklerSample", auto:()=>0 },
+      { id:"i10DrySprinkler", cycle:"10-Year", ref:"NFPA 25 Ch. 5", desc:"Dry Sprinklers - sample lab test", techs:1, hrs:0, add:0, page:"Sprinkler Sample Testing", group:"sprinklerSample", auto:()=>0 },
+      { id:"i20FastResponse", cycle:"20-Year", ref:"NFPA 25 Ch. 5", desc:"Fast-Response Sprinklers - sample lab test at 20 years, then every 10 years", techs:1, hrs:0, add:0, page:"Sprinkler Sample Testing", group:"sprinklerSample", auto:()=>0 },
+      { id:"i50Standard", cycle:"50-Year", ref:"NFPA 25 Ch. 5", desc:"Standard-Response Sprinklers - sample lab test at 50 years, then every 10 years", techs:1, hrs:0, add:0, page:"Sprinkler Sample Testing", group:"sprinklerSample", auto:()=>0 },
+
+      { section:"NFPA 10 — Portable Fire Extinguishers" },
+      { id:"e6Maint", cycle:"6-Year", ref:"NFPA 10 Ch. 7", desc:"6-Year Maintenance - stored-pressure dry chemical and halogenated agent", techs:1, hrs:0, add:0, flat:true, page:"Portable Fire Extinguisher Multi-Year Service", group:"extinguisher", auto:()=>0 },
+      { id:"e12Hydro", cycle:"12-Year", ref:"NFPA 10 Ch. 8", desc:"Hydrostatic Test - dry chemical, halogenated agent and dry powder", techs:1, hrs:0, add:0, flat:true, page:"Portable Fire Extinguisher Multi-Year Service", group:"extinguisher", auto:()=>0 },
+      { id:"e5HydroWater", cycle:"5-Year", ref:"NFPA 10 Ch. 8", desc:"Hydrostatic Test - water, AFFF / FFFP foam, wet chemical (Class K) and water mist", techs:1, hrs:0, add:0, flat:true, page:"Portable Fire Extinguisher Multi-Year Service", group:"extinguisher", auto:()=>0 },
+      { id:"e5HydroCo2", cycle:"5-Year", ref:"NFPA 10 Ch. 8", desc:"Hydrostatic Test - carbon dioxide", techs:1, hrs:0, add:0, flat:true, page:"Portable Fire Extinguisher Multi-Year Service", group:"extinguisher", auto:()=>0 },
+
+      { section:"NFPA 72 — Fire Alarm" },
+      { id:"a2Sensitivity", cycle:"2-Year", ref:"NFPA 72 Ch. 14", desc:"Smoke Detector Sensitivity Testing (skip if already in the annual agreement)", techs:1, hrs:0.2, add:20, flat:true, page:"Fire Alarm Multi-Year Service", group:"alarm", auto:()=>sys("smokes") },
+      { id:"a5Battery", cycle:"5-Year", ref:"NFPA 72 Ch. 10 & 14", desc:"Sealed Lead-Acid (VRLA) Battery Replacement", techs:1, hrs:0, add:0, page:"Fire Alarm Multi-Year Service", group:"alarm", auto:()=>sys("batteries") },
+      { id:"a10SmokeAlarm", cycle:"10-Year", ref:"NFPA 72 Ch. 14", desc:"Single / Multiple-Station Smoke Alarm Replacement", techs:1, hrs:0, add:0, page:"Fire Alarm Multi-Year Service", group:"alarm", auto:()=>sys("smokeAlarms") },
+      { id:"a15Heat", cycle:"15-Year", ref:"NFPA 72 Ch. 14", desc:"Non-Restorable Fixed-Temp Spot Heat Detectors - lab test 2 per 100 (min. 2), then every 5 years", techs:1, hrs:0, add:0, page:"Fire Alarm Multi-Year Service", group:"alarm", auto:()=>sys("heat")>0?Math.max(2,Math.ceil(sys("heat")*0.02)):0 },
+      { id:"aSmokeReplace", cycle:"Per Mfr", ref:"NFPA 72 Ch. 14", desc:"System Smoke Detector Replacement at manufacturer's service life", techs:1, hrs:0, add:0, page:"Fire Alarm Multi-Year Service", group:"alarm", auto:()=>0 },
+      { id:"aCoReplace", cycle:"Per Mfr", ref:"NFPA 72 Ch. 14", desc:"CO Detector / Alarm Replacement at end of life", techs:1, hrs:0, add:0, page:"Fire Alarm Multi-Year Service", group:"alarm", auto:()=>sys("coDevices") },
+
+      { section:"As Needed / One-Time" },
+      { id:"iObstruction", cycle:"As Needed", ref:"NFPA 25 Ch. 14", desc:"Obstruction Investigation", techs:2, hrs:4.0, add:0, page:"Obstruction Investigation / Flushing", group:"obstruction" },
+      { id:"iFlush", cycle:"As Needed", ref:"NFPA 25 Ch. 14", desc:"System / Branch-Line Flushing", techs:2, hrs:4.0, add:0, page:"Obstruction Investigation / Flushing", group:"obstruction" },
+      { id:"iIcePlug", cycle:"As Needed", ref:"NFPA 25 Ch. 14", desc:"Ice Plug Test / Cold-Storage Ice Obstruction Investigation", techs:1, hrs:2.5, add:0, page:"Ice Plug Investigation", group:"icePlug", auto:()=>sys("dry")+sys("preAction") },
+      { id:"iDrainRestore", cycle:"One-Time", desc:"System Drain, Refill & Return to Service", techs:2, hrs:1.0, add:0, page:"System Restoration", group:"restore" },
+      { id:"iFireWatch", cycle:"One-Time", desc:"Fire Watch / Impairment Support", techs:1, hrs:1.0, add:0, page:"Impairment / Fire Watch Support", group:"support" },
+      { id:"iCustom1", cycle:"One-Time", desc:"Custom Internal Inspection Service 1", techs:1, hrs:1.0, add:0, page:"Other Internal Inspection Services", group:"custom", editable:true },
+      { id:"iCustom2", cycle:"One-Time", desc:"Custom Internal Inspection Service 2", techs:1, hrs:1.0, add:0, page:"Other Internal Inspection Services", group:"custom", editable:true },
+      { id:"iCustom3", cycle:"One-Time", desc:"Custom Internal Inspection Service 3", techs:1, hrs:1.0, add:0, page:"Other Internal Inspection Services", group:"custom", editable:true }
+    ];
+    const internalServices = internalServiceCatalog.filter(row => row.id);
+
+    const internalPartCatalog = [
+      { id:"pWaterGauge", desc:"Water Pressure Gauge" },
+      { id:"pAirGauge", desc:"Air Pressure Gauge" },
+      { id:"pGaugeValve", desc:"Gauge Valve / Petcock" },
+      { id:"pAlarmCheckKit", desc:"Alarm / Check Valve Gasket or Rubber Kit" },
+      { id:"pDryValveKit", desc:"Dry Pipe Valve Gasket or Rubber Kit" },
+      { id:"pPreactionKit", desc:"Pre-Action Valve Gasket or Rubber Kit" },
+      { id:"pBackflowKit", desc:"Backflow Prevention Assembly Rubber / Repair Kit" },
+      { id:"pBackflowReliefKit", desc:"Backflow Relief Valve Rubber / Repair Kit" },
+      { id:"pFdcCaps", desc:"FDC Caps / Plugs and Chains" },
+      { id:"pFdcGasket", desc:"FDC Check Valve Gasket / Rubber" },
+      { id:"pBallDrip", desc:"Automatic Ball Drip" },
+      { id:"pStrainer", desc:"Strainer / Filter / Restricted Orifice Replacement" },
+      { id:"pCouplingGasket", desc:"Grooved Coupling Gasket" },
+      { id:"pLowPointValve", desc:"Low-Point Drain Valve" },
+      { id:"pPipeFittings", desc:"Misc. Pipe / Fittings / Nipples" },
+      { id:"pSprinklerHead", desc:"Replacement Sprinklers (for lab-test samples)" },
+      { id:"pFaBattery", desc:"Fire Alarm Battery (12V sealed lead-acid)" },
+      { id:"pHeatDetector", desc:"Replacement Heat Detector" },
+      { id:"pSmokeDetector", desc:"Replacement Smoke Detector" },
+      { id:"pCoDetector", desc:"Replacement CO Detector / Alarm" },
+      { id:"pCustom1", desc:"Custom Part / Material 1", editable:true },
+      { id:"pCustom2", desc:"Custom Part / Material 2", editable:true },
+      { id:"pCustom3", desc:"Custom Part / Material 3", editable:true }
+    ];
+
+    function internalNum(id) { const el=$(id); return el ? Math.max(0, Number(el.value)||0) : 0; }
+    function internalVal(id) { const el=$(id); return el ? String(el.value||"").trim() : ""; }
+    function internalChecked(id) { const el=$(id); return Boolean(el && el.checked); }
+    let internalFiveYearManual = false;
+    const manualQty = new Set();
+    let rateCard = {};
+
+    function inspectionFiveYearInputs() {
+      const wet = sys("wet"), dry = sys("dry"), preAction = sys("preAction"), fdc = sys("fdc");
+      const systems = wet + dry + preAction;
+      const manHours = systems <= 0 ? 0 : (systems === 1 ? 1.75 : systems * 1.5) + fdc;
+      return {wet,dry,preAction,fdc,systems,manHours:round2(manHours)};
+    }
+    function inspectionFiveYearEstimate() {
+      const scope = inspectionFiveYearInputs();
+      const sellRate = internalNum("internalSellRate");
+      const basePrice = scope.manHours > 0 ? Math.max(1250, scope.manHours * sellRate) : 0;
+      return {...scope,sellRate,basePrice:round2(basePrice)};
+    }
+    function syncInspectionFiveYearLine(force=false) {
+      const estimate = inspectionFiveYearEstimate();
+      const qty = $("int-qty-i5InspectionAuto"), techs = $("int-tech-i5InspectionAuto"), hrs = $("int-hrs-i5InspectionAuto");
+      if (force || !internalFiveYearManual) {
+        if (qty) qty.value = estimate.systems;
+        if (techs) techs.value = 1;
+        if (hrs) hrs.value = estimate.systems > 0 ? Number((estimate.manHours / estimate.systems).toFixed(4)) : 0;
+      }
+      return estimate;
+    }
+    // Fill each line's qty from System Information unless someone typed over it.
+    function syncAutoQuantities() {
+      internalServices.forEach(row => {
+        if (!row.auto || manualQty.has(row.id)) return;
+        const el = $("int-qty-"+row.id);
+        if (el) el.value = row.auto();
+      });
+    }
+    function internalMoney(v) { return money.format(round2(Number(v)||0)); }
+    function internalServiceState(row) {
+      return {
+        selected: internalChecked("int-sel-"+row.id),
+        qty: Math.max(0, Number($("int-qty-"+row.id)?.value)||0),
+        techs: Math.max(0, Number($("int-tech-"+row.id)?.value)||0),
+        hrs: Math.max(0, Number($("int-hrs-"+row.id)?.value)||0),
+        add: Math.max(0, Number($("int-add-"+row.id)?.value)||0),
+        desc: row.editable ? (internalVal("int-desc-"+row.id) || row.desc) : row.desc
+      };
+    }
+    function internalPartState(row) {
+      return {
+        selected: internalChecked("int-psel-"+row.id),
+        qty: Math.max(0, Number($("int-pqty-"+row.id)?.value)||0),
+        sell: Math.max(0, Number($("int-psell-"+row.id)?.value)||0),
+        cost: Math.max(0, Number($("int-pcost-"+row.id)?.value)||0),
+        desc: row.editable ? (internalVal("int-pdesc-"+row.id) || row.desc) : row.desc
+      };
+    }
+    function rowDefaults(row) {
+      const saved = rateCard.services && rateCard.services[row.id] || {};
+      return { techs: saved.techs ?? row.techs, hrs: saved.hrs ?? row.hrs, add: saved.add ?? row.add };
+    }
+    function partDefaults(row) {
+      const saved = rateCard.parts && rateCard.parts[row.id] || {};
+      return { sell: saved.sell ?? 0, cost: saved.cost ?? 0 };
+    }
+    // A line has no price until it has hours (hourly lines) or a unit price (flat lines).
+    function needsRate(row, s) {
+      if (row.pricing === "inspectionFiveYear") return false;
+      return row.flat ? s.add <= 0 : (s.hrs <= 0 && s.add <= 0);
+    }
+
+    function renderSystemGrid() {
+      $("systemGrid").innerHTML = systemFields.map(f =>
+        `<label class="${f.from ? "" : "manual-only"}" for="sys-${f.id}" title="${f.from ? "From the inspection account" : "Not tracked on the inspection side; enter here"}">${escapeHtml(f.label)}<input id="sys-${f.id}" type="number" min="0" step="1" value="0"></label>`
+      ).join("");
+    }
+
+    function renderInternalCatalogs() {
+      const serviceBody=$("internalServiceRows");
+      serviceBody.innerHTML=internalServiceCatalog.map(row=>{
+        if (row.section) return `<tr class="internal-group-row"><td colspan="8">${escapeHtml(row.section)}</td></tr>`;
+        const d = rowDefaults(row);
+        const desc = row.editable
+          ? `<input id="int-desc-${row.id}" type="text" value="${escapeHtml(row.desc)}" aria-label="Custom service description">`
+          : escapeHtml(row.desc);
+        const tags = (row.flat ? `<span class="flat-flag" title="Billed as qty x $/Unit">Flat</span>` : "") + `<span class="rate-flag" id="int-flag-${row.id}" hidden>Set rate</span>`;
+        return `<tr id="int-row-${row.id}">
+          <td class="center"><input id="int-sel-${row.id}" type="checkbox"></td>
+          <td class="desc">${desc}${tags}${row.ref ? `<small>${escapeHtml(row.ref)}</small>` : ""}</td>
+          <td class="center">${escapeHtml(row.cycle)}</td>
+          <td><input id="int-qty-${row.id}" type="number" min="0" step="1" value="0" ${row.autoFromInspection?"title=\"Starts with the sprinkler-system count; editable\"":row.auto?"title=\"Fills from System Information until you type over it\"":""}></td>
+          <td><input id="int-tech-${row.id}" type="number" min="0" step="1" value="${d.techs}"></td>
+          <td><input id="int-hrs-${row.id}" type="number" min="0" step="${row.autoFromInspection?"0.0001":"0.05"}" value="${d.hrs}" ${row.autoFromInspection?"title=\"Starts with calculated hours per system for one technician; editable\"":""}></td>
+          <td><input id="int-add-${row.id}" type="number" min="0" step="0.01" value="${d.add}"></td>
+          <td class="num" id="int-total-${row.id}">$0.00</td>
+        </tr>`;
+      }).join("");
+
+      const partBody=$("internalPartRows");
+      partBody.innerHTML=internalPartCatalog.map(row=>{
+        const d = partDefaults(row);
+        const desc = row.editable
+          ? `<input id="int-pdesc-${row.id}" type="text" value="${escapeHtml(row.desc)}" aria-label="Custom part description">`
+          : escapeHtml(row.desc);
+        return `<tr id="int-prow-${row.id}">
+          <td class="center"><input id="int-psel-${row.id}" type="checkbox"></td>
+          <td class="desc">${desc}</td>
+          <td><input id="int-pqty-${row.id}" type="number" min="0" step="1" value="0"></td>
+          <td><input id="int-psell-${row.id}" type="number" min="0" step="0.01" value="${d.sell}"></td>
+          <td><input id="int-pcost-${row.id}" type="number" min="0" step="0.01" value="${d.cost}"></td>
+          <td class="num" id="int-ptotal-${row.id}">$0.00</td>
+        </tr>`;
+      }).join("");
+    }
+
+    // Delegated once on the wrapper, so re-rendered rows keep working.
+    function wireInputs() {
+      const wrap=$('internalToolWrap');
+      wrap.addEventListener('input', (event)=>{
+        const el=event.target;
+        if (!el.id) return;
+        if (/^int-(qty|tech|hrs)-i5InspectionAuto$/.test(el.id)) internalFiveYearManual=true;
+        if (el.id.startsWith('int-qty-')) manualQty.add(el.id.slice(8));
+        if (el.id.startsWith('sys-')) syncAutoQuantities();
+        if (el.id.startsWith('int-sel-') && el.checked) {
+          const q=$(el.id.replace('int-sel-','int-qty-')); if(q && Number(q.value)<=0) { q.value=1; manualQty.add(el.id.slice(8)); }
+        }
+        if (el.id.startsWith('int-psel-') && el.checked) {
+          const q=$(el.id.replace('int-psel-','int-pqty-')); if(q && Number(q.value)<=0) q.value=1;
+        }
+        updateInternalTool();
+      });
+      wrap.addEventListener('change', updateInternalTool);
+    }
+
+    function lineFor(row, s, sell, costRate) {
+      const imported = row.pricing === "inspectionFiveYear" ? inspectionFiveYearEstimate() : null;
+      const useImported = imported && !internalFiveYearManual;
+      const rawHours = useImported ? imported.manHours : s.qty*s.techs*s.hrs;
+      let labor, add;
+      if (imported) { labor = rawHours > 0 ? Math.max(1250, rawHours*sell) : 0; add = s.qty*s.add; }
+      else if (row.flat) { labor = 0; add = s.qty*s.add; }
+      else { labor = rawHours*sell; add = s.qty*s.add; }
+      return { rawHours, labor, add, cost: rawHours*costRate, hrs: useImported ? imported.manHours : s.hrs };
+    }
+
+    function internalTotals() {
+      const sell=internalNum('internalSellRate');
+      const costRate=internalNum('internalLoadedCost');
+      const services=[];
+      let laborRevenue=0, addRevenue=0, laborCost=0, rawTechHours=0;
+      internalServices.forEach(row=>{
+        const s=internalServiceState(row);
+        if(!s.selected || s.qty<=0) return;
+        const l=lineFor(row, s, sell, costRate);
+        rawTechHours += l.rawHours;
+        laborRevenue+=l.labor; addRevenue+=l.add; laborCost+=l.cost;
+        services.push({...row,...s,hrs:l.hrs,lineTotal:round2(l.labor+l.add), laborTotal:round2(l.labor), internalCost:round2(l.cost)});
+      });
+      const parts=[];
+      let partsRevenue=0, partsCost=0;
+      internalPartCatalog.forEach(row=>{
+        const p=internalPartState(row);
+        if(!p.selected || p.qty<=0) return;
+        const rev=p.qty*p.sell, cost=p.qty*p.cost;
+        partsRevenue+=rev; partsCost+=cost;
+        parts.push({...row,...p,lineTotal:round2(rev),internalCost:round2(cost)});
+      });
+      const trips=internalNum('internalTrips');
+      const tripRevenue=trips*internalNum('internalTripFee');
+      const lift=internalChecked('internalLiftRequired') ? internalNum('internalLiftCharge') : 0;
+      const liftCost=lift; // the inspection tool treats the lift fee as both charge and company cost.
+      const autoService=round2(laborRevenue+addRevenue+partsRevenue+tripRevenue+lift);
+      const manual=internalNum('internalManualPrice');
+      const servicePrice=manual>0 ? manual : autoService;
+      const reporting=internalNum('internalReportingCharge');
+      const reportingCost=internalNum('internalReportingCost');
+      const taxableSubtotal=servicePrice+reporting;
+      const tax=internalChecked('internalTaxExempt')?0:round2(taxableSubtotal*(internalNum('internalTaxRate')/100));
+      const grand=round2(taxableSubtotal+tax);
+      const internalCost=round2(laborCost+partsCost+liftCost+reportingCost);
+      const marginBase=servicePrice+reporting-reportingCost;
+      const margin=marginBase>0 ? (servicePrice+reporting-internalCost)/marginBase : null;
+      return {services,parts,laborRevenue,addRevenue,partsRevenue,tripRevenue,lift,autoService,manual,servicePrice,reporting,reportingCost,tax,grand,internalCost,margin,rawTechHours};
+    }
+
+    function internalSelectedPages(t) {
+      const pages=[];
+      const add=(p)=>{ if(p && !pages.includes(p)) pages.push(p); };
+      t.services.forEach(s=>add(s.page));
+      if(t.parts.length) add('Parts & Materials');
+      if(internalVal('internalSpecialProvisions')) add('Special Provisions');
+      return pages;
+    }
+
+    function updateInternalTool() {
+      const importedEstimate=syncInspectionFiveYearLine();
+      $("internalImportedSystems").textContent=formatPlain(importedEstimate.systems);
+      $("internalImportedFdcs").textContent=formatPlain(importedEstimate.fdc);
+      $("internalImportedHours").textContent=`${formatPlain(importedEstimate.manHours)} hr`;
+      $("internalImportedPrice").textContent=internalMoney(importedEstimate.basePrice);
+      const t=internalTotals();
+      const sell=internalNum('internalSellRate'), costRate=internalNum('internalLoadedCost');
+      const unpriced=[];
+      internalServices.forEach(row=>{
+        const s=internalServiceState(row);
+        const l=lineFor(row, s, sell, costRate);
+        const active=s.selected&&s.qty>0;
+        $('int-total-'+row.id).textContent=internalMoney(active ? l.labor+l.add : 0);
+        $('int-row-'+row.id).classList.toggle('internal-row-selected', active);
+        const missing=needsRate(row, s);
+        $('int-flag-'+row.id).hidden=!missing;
+        if(active && missing) unpriced.push(s.desc);
+      });
+      const bundle=t.services.some(s=>s.group==='fivePipe');
+      const overlap=bundle ? t.services.filter(s=>s.group==='fiveValve').map(s=>s.desc) : [];
+      const warnings=[];
+      if(unpriced.length) warnings.push(`No rate yet on: ${unpriced.join('; ')}. These lines are $0 until you enter hours or a unit price.`);
+      if(overlap.length) warnings.push('The 5-Year bundle already covers the valve / component internal lines you checked. Uncheck them unless they are extra work.');
+      $('internalRateWarning').hidden=!warnings.length;
+      $('internalRateWarning').textContent=warnings.join(' ');
+
+      internalPartCatalog.forEach(row=>{
+        const p=internalPartState(row), line=p.selected&&p.qty>0?p.qty*p.sell:0;
+        $('int-ptotal-'+row.id).textContent=internalMoney(line);
+        $('int-prow-'+row.id).classList.toggle('internal-row-selected', p.selected && p.qty>0);
+      });
+
+      $('internalPCustomer').textContent=internalVal('internalCustomerName')||'—';
+      $('internalPAddress').textContent=[internalVal('internalServiceAddress'),internalVal('internalCityStateZip')].filter(Boolean).join(', ')||'—';
+      $('internalPContact').textContent=internalVal('internalContactName')||'—';
+      $('internalPPhoneEmail').textContent=internalVal('internalPhoneEmail')||'—';
+      $('internalPDate').textContent=internalVal('internalProposalDate')||'—';
+      $('internalPPrepared').textContent=internalVal('internalPreparedBy')||'—';
+
+      const rows=[];
+      t.services.forEach(s=>rows.push(`<tr><td>${s.qty}</td><td>${escapeHtml(s.desc)}</td><td>${escapeHtml(s.cycle)}</td><td class="num">${internalMoney(s.lineTotal)}</td></tr>`));
+      t.parts.forEach(p=>rows.push(`<tr><td>${p.qty}</td><td>${escapeHtml('Part / Material: '+p.desc)}</td><td>One-Time</td><td class="num">${internalMoney(p.lineTotal)}</td></tr>`));
+      if(t.tripRevenue>0) rows.push(`<tr><td>${Math.max(0,internalNum('internalTrips'))}</td><td>Service Call / Trip Charge</td><td>Per Trip</td><td class="num">${internalMoney(t.tripRevenue)}</td></tr>`);
+      if(t.lift>0) rows.push(`<tr><td>1</td><td>Lift / Access Equipment</td><td>One-Time</td><td class="num">${internalMoney(t.lift)}</td></tr>`);
+      $('internalPreviewRows').innerHTML=rows.join('');
+      $('internalPreviewEmpty').hidden=rows.length>0;
+      $('internalPServiceTotal').textContent=internalMoney(t.servicePrice);
+      $('internalPReporting').textContent=internalMoney(t.reporting);
+      $('internalPReportingRow').hidden=t.reporting<=0;
+      $('internalPTax').textContent=internalMoney(t.tax);
+      $('internalPTaxRow').hidden=t.tax<=0;
+      $('internalPGrandTotal').textContent=internalMoney(t.grand);
+      $('internalPLabor').textContent=`${formatPlain(round2(t.rawTechHours))} tech hr`;
+      $('internalPCost').textContent=internalMoney(t.internalCost);
+      $('internalPMargin').textContent=t.margin===null?'—':`${formatPlain(round2(t.margin*100))}%`;
+      const pages=internalSelectedPages(t);
+      $('internalAgreementPages').innerHTML=pages.length?pages.map(p=>`<span class="internal-agreement-page-chip">${escapeHtml(p)}</span>`).join(''):'<span class="internal-empty">No internal inspection pages selected.</span>';
+    }
+
+    function clearInternalSelections(){
+      internalFiveYearManual=false;
+      manualQty.clear();
+      internalServices.forEach(r=>{
+        const d=rowDefaults(r);
+        const s=$('int-sel-'+r.id), q=$('int-qty-'+r.id); if(s)s.checked=false; if(q)q.value=0;
+        if(r.editable&&$('int-desc-'+r.id)) $('int-desc-'+r.id).value=r.desc;
+        $('int-tech-'+r.id).value=d.techs; $('int-hrs-'+r.id).value=d.hrs; $('int-add-'+r.id).value=d.add;
+      });
+      internalPartCatalog.forEach(r=>{
+        const d=partDefaults(r);
+        $('int-psel-'+r.id).checked=false; $('int-pqty-'+r.id).value=0; $('int-psell-'+r.id).value=d.sell; $('int-pcost-'+r.id).value=d.cost;
+        if(r.editable&&$('int-pdesc-'+r.id)) $('int-pdesc-'+r.id).value=r.desc;
+      });
+      $('internalTrips').value=1; $('internalReportingCharge').value=0; $('internalReportingCost').value=0;
+      $('internalLiftRequired').checked=false; $('internalManualPrice').value=''; $('internalSpecialProvisions').value='';
+      syncAutoQuantities();
+      updateInternalTool();
+    }
+
+    /* ===== Inspection accounts (contact + system information) ===== */
+    let accountSummaries=[];
+    let activeAccountId='';
+    let activeInternalQuoteId='';
+    let internalQuoteSummaries=[];
+
+    function setStatus(id, message, tone='') { const el=$(id); el.textContent=message; el.className=`account-status${tone?` ${tone}`:''}`; }
+
+    function renderAccountList() {
+      const select=$('accountSelect');
+      select.innerHTML='<option value="">Select an inspection account…</option>'+accountSummaries.map(a=>
+        `<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)}${a.serviceAddress?` — ${escapeHtml(a.serviceAddress)}`:''}</option>`).join('');
+      if(activeAccountId) select.value=activeAccountId;
+    }
+
+    function renderInternalQuoteList() {
+      const select=$('internalQuoteSelect');
+      select.innerHTML=internalQuoteSummaries.length
+        ? '<option value="">Select a saved internal quote…</option>'+internalQuoteSummaries.map(q=>`<option value="${escapeHtml(q.id)}">${escapeHtml(q.name)} — ${internalMoney(q.total)}</option>`).join('')
+        : '<option value="">No saved internal quotes</option>';
+      if(activeInternalQuoteId) select.value=activeInternalQuoteId;
+    }
+
+    function applyAccount(account) {
+      const f=account.fields||{};
+      const pairs=[
+        ['customerName','internalCustomerName'],['serviceAddress','internalServiceAddress'],['cityStateZip','internalCityStateZip'],
+        ['contactName','internalContactName'],['phoneEmail','internalPhoneEmail'],['preparedBy','internalPreparedBy'],
+        ['repContact','internalRepContact'],['billingRate','internalSellRate'],['loadedCost','internalLoadedCost'],['salesTaxRate','internalTaxRate']
+      ];
+      pairs.forEach(([a,b])=>{ if(f[a]!==undefined && f[a]!=='') $(b).value=f[a]; });
+      $('internalTaxExempt').checked=Boolean(account.taxExempt);
+      const q=account.quantities||{};
+      systemFields.forEach(field=>{
+        if(!field.from) return;
+        $('sys-'+field.id).value=field.from.reduce((sum,id)=>sum+(Number(q[id])||0),0);
+      });
+      if(!$('internalProposalDate').value) $('internalProposalDate').value=stampPrintDate();
+      activeAccountId=account.id;
+      internalFiveYearManual=false;
+      manualQty.clear();
+      syncAutoQuantities();
+      updateInternalTool();
+    }
+
+    async function loadAccount(id) {
+      if(!id){ setStatus('accountStatus','Pick an inspection account first.','warning'); return; }
+      setStatus('accountStatus','Pulling contact and system information…');
+      try {
+        const account=await serverCall('getAccount', id);
+        applyAccount(account);
+        $('accountSelect').value=id;
+        setStatus('accountStatus',`Pulled from "${account.name}". Edits here do not change the inspection account.`);
+      } catch(err) { setStatus('accountStatus',err.message,'warning'); }
+    }
+
+    /* ===== Internal quotes: save / load ===== */
+    function captureState() {
+      const fields={};
+      document.querySelectorAll('#internalToolWrap input[id], #internalToolWrap textarea[id], #internalToolWrap select[id]').forEach(el=>{
+        fields[el.id]=el.type==='checkbox'?el.checked:el.value;
+      });
+      return { fields, manualQty:[...manualQty], internalFiveYearManual };
+    }
+
+    function applyState(state) {
+      renderInternalCatalogs();
+      Object.entries(state.fields||{}).forEach(([id,value])=>{
+        const el=$(id); if(!el) return;
+        if(el.type==='checkbox') el.checked=Boolean(value); else el.value=value;
+      });
+      manualQty.clear(); (state.manualQty||[]).forEach(id=>manualQty.add(id));
+      internalFiveYearManual=Boolean(state.internalFiveYearManual);
+      updateInternalTool();
+    }
+
+    async function saveInternalQuote(asNew=false) {
+      const name=internalVal('internalCustomerName')||'Untitled';
+      const t=internalTotals();
+      setStatus('quoteStatus','Saving…');
+      try {
+        const result=await serverCall('saveInternalQuote', {
+          id: asNew ? '' : activeInternalQuoteId, name, accountId: activeAccountId, total: t.grand, state: captureState()
+        });
+        activeInternalQuoteId=result.quote.id;
+        internalQuoteSummaries=result.summaries;
+        renderInternalQuoteList();
+        setStatus('quoteStatus',`Saved "${result.quote.name}".`);
+      } catch(err) { setStatus('quoteStatus',err.message,'warning'); }
+    }
+
+    async function loadInternalQuote() {
+      const id=$('internalQuoteSelect').value;
+      if(!id){ setStatus('quoteStatus','Pick a saved internal quote first.','warning'); return; }
+      setStatus('quoteStatus','Loading…');
+      try {
+        const quote=await serverCall('getInternalQuote', id);
+        applyState(quote.state||{});
+        activeInternalQuoteId=quote.id;
+        activeAccountId=quote.accountId||'';
+        renderAccountList();
+        setStatus('quoteStatus',`Loaded "${quote.name}".`);
+      } catch(err) { setStatus('quoteStatus',err.message,'warning'); }
+    }
+
+    async function saveRates() {
+      const card={services:{},parts:{}};
+      internalServices.forEach(r=>{
+        if(r.pricing==='inspectionFiveYear') return;
+        const s=internalServiceState(r);
+        card.services[r.id]={techs:s.techs,hrs:s.hrs,add:s.add};
+      });
+      internalPartCatalog.forEach(r=>{ const p=internalPartState(r); card.parts[r.id]={sell:p.sell,cost:p.cost}; });
+      setStatus('quoteStatus','Saving default rates…');
+      try { rateCard=await serverCall('saveRateCard', card); setStatus('quoteStatus','Default rates saved for everyone using this tool.'); }
+      catch(err) { setStatus('quoteStatus',err.message,'warning'); }
+    }
+
+    /* ===== Internal Inspection Agreement (.docx) — same template and builder as the inspection tool ===== */
+    function internalAgreementScopeItems(t) {
+      const items=[];
+      t.services.forEach(s=>items.push({qty:s.qty,desc:s.desc,insp:`One-Time - ${s.cycle}`}));
+      t.parts.forEach(p=>items.push({qty:p.qty,desc:`Part / Material - ${p.desc}`,insp:'Included - One-Time'}));
+      const trips=internalNum('internalTrips');
+      if(trips>0) items.push({qty:trips,desc:'Service Call / On-Site Trip',insp:'As Scheduled'});
+      if(internalChecked('internalLiftRequired')) items.push({qty:1,desc:'Lift / Access Equipment',insp:'Included - One-Time'});
+      return items;
+    }
+
+    function replaceInternalAgreementParagraph(xml, marker, newText) {
+      const idx=xml.indexOf(marker); if(idx===-1) return xml;
+      const ps=xml.lastIndexOf('<w:p>',idx), pe=xml.indexOf('</w:p>',idx); if(ps===-1||pe===-1) return xml;
+      const old=xml.slice(ps,pe+'</w:p>'.length);
+      const ppr=(old.match(/<w:pPr>[\s\S]*?<\/w:pPr>/)||[''])[0];
+      const runMatches=Array.from(old.matchAll(/<w:r>([\s\S]*?)<\/w:r>/g));
+      let numberRpr='', textRpr='';
+      runMatches.forEach((match)=>{
+        const body=match[1]||'';
+        const textMatch=body.match(/<w:t[^>]*>([\s\S]*?)<\/w:t>/);
+        if(!textMatch) return;
+        const runText=textMatch[1].replace(/<[^>]+>/g,'').trim();
+        const rpr=(body.match(/<w:rPr>[\s\S]*?<\/w:rPr>/)||[''])[0];
+        if(/^\d+\.$/.test(runText) && !numberRpr) numberRpr=rpr;
+        else if(runText && !textRpr) textRpr=rpr;
+      });
+      // Preserve the template's compact terms-and-conditions typography instead of
+      // falling back to Word's Normal-style font size when a paragraph is rewritten.
+      if(!textRpr) textRpr='<w:rPr><w:sz w:val="10"/><w:szCs w:val="10"/></w:rPr>';
+      const numbered=String(newText).match(/^(\d+\.)\s*(.*)$/s);
+      let runs;
+      if(numbered){
+        if(!numberRpr) numberRpr='<w:rPr><w:b/><w:bCs/><w:sz w:val="10"/><w:szCs w:val="10"/></w:rPr>';
+        runs='<w:r>'+numberRpr+'<w:t>'+xmlEscape(numbered[1])+'</w:t></w:r>'+
+          '<w:r>'+textRpr+'<w:tab/><w:t xml:space="preserve">'+xmlEscape(numbered[2])+'</w:t></w:r>';
+      } else {
+        runs='<w:r>'+textRpr+'<w:t xml:space="preserve">'+xmlEscape(newText)+'</w:t></w:r>';
+      }
+      const replacement='<w:p>'+ppr+runs+'</w:p>';
+      return xml.slice(0,ps)+replacement+xml.slice(pe+'</w:p>'.length);
+    }
+
+    function internalRemoveBlock(x,startText,endText,endIsParaEnd){
+      const si=x.indexOf(startText); if(si===-1)return x;
+      const ps=x.lastIndexOf('<w:p>',si); if(ps===-1)return x;
+      const e=x.indexOf(endText,si); if(e===-1)return x;
+      let ei;
+      if(endIsParaEnd){const pe=x.indexOf('</w:p>',e); if(pe===-1)return x; ei=pe+'</w:p>'.length;}
+      else {ei=x.lastIndexOf('<w:p>',e);}
+      if(ei===-1||ei<ps)return x;
+      return x.slice(0,ps)+x.slice(ei);
+    }
+
+    function internalAgreementDescriptions(t) {
+      const {pageBreak,heading,lead,para,bullet,blank,serviceReport,inspReports}=agreementDescriptionParts();
+      let out='';
+      const has=(id)=>t.services.some(s=>s.id===id);
+      const hasGroup=(g)=>t.services.some(s=>s.group===g);
+
+      if(hasGroup('three')){
+        out+=pageBreak+heading('3-Year Dry / Pre-Action System Testing')+blank;
+        out+=lead('Scope - ','SLS will perform the selected three-year dry-pipe and/or pre-action system testing shown on the attached Scope of Work. Work will be coordinated as a planned impairment and performed on accessible system components under normal site conditions.');
+        out+=blank+para(serviceReport)+blank;
+        if(has('i3DryTrip')||has('i3Preaction')){
+          out+=lead('Full-Flow Trip Testing - ','SLS will conduct the selected full-flow trip or functional trip test, record available system and supply pressures, valve trip timing, and water-delivery timing, and verify associated alarm or quick-opening functions where applicable to the system being tested.');
+          out+=bullet('Coordinate impairment notifications and place the applicable system in test condition');
+          out+=bullet('Open the remote inspector\'s test or approved test connection as required for the selected full-flow test');
+          out+=bullet('Record available air or nitrogen pressure, water-supply pressure, trip time, and water-delivery time');
+          out+=bullet('Verify operation of the dry or pre-action valve and associated alarm / supervisory functions included in the test');
+          out+=bullet('Drain, reset, repressurize, and return the tested system to service after completion');
+        }
+        if(has('i3Leakage')){
+          out+=blank+lead('Air Leakage Test - ','SLS will perform the selected dry / pre-action system air leakage test using the applicable test method, document the pressure loss over the test period, and identify leakage or air-maintenance conditions requiring corrective work.');
+        }
+        out+=blank+lead('Inspection Reports - ',inspReports)+blank;
+        out+=para('Note: Repairs, replacement parts, temporary fire watch, extraordinary water-disposal provisions, after-hours work, and corrective work are excluded unless specifically listed on the Scope of Work or Special Provisions.');
+      }
+
+      if(hasGroup('fivePipe')){
+        out+=pageBreak+heading('5-Year Internal Inspection')+blank;
+        out+=lead('Scope - ','SLS will perform the selected five-year internal inspection of accessible water-based fire protection system piping and associated alarm/check valves, strainers, filters, restricted openings, applicable pre-action/deluge components, and backflow components. The inspection will assess for corrosion, scale, foreign material, biological growth, wear, damage, or other conditions that could obstruct water flow or adversely affect system performance.');
+        out+=blank+para(serviceReport)+blank;
+        out+=lead('Testing & Inspection - ','The assessment will be performed at representative accessible locations selected for the system configuration and the applicable NFPA 25 / Authority Having Jurisdiction requirements. The system will be impaired, drained, opened as necessary for the selected assessment method, and restored after the examination.');
+        out+=bullet('Coordinate system impairment and drain the portion of the system necessary to access representative internal locations');
+        out+=bullet('Examine accessible internal piping surfaces for corrosion, rust, scale, foreign material, deposits, or other obstruction indicators');
+        out+=bullet('Inspect accessible clappers, checks, seats, seals, waterways, strainers, filters, and restricted openings associated with the selected systems');
+        out+=bullet('Document the condition observed and identify locations where additional investigation is recommended');
+        out+=bullet('Reassemble opened components, refill the system, verify normal valve positions, and return the system to service');
+        out+=blank+lead('Inspection Reports - ',inspReports)+blank;
+        out+=para('If the assessment indicates material that could obstruct piping or sprinklers, an obstruction investigation, flushing, repairs, or additional examination may be recommended and is not included unless separately selected on the Scope of Work.');
+      }
+
+      if(hasGroup('fiveValve')){
+        out+=pageBreak+heading('5-Year Valve / Component Internal Inspection')+blank;
+        out+=lead('Scope - ','SLS will internally inspect the selected alarm valves, check valves, pre-action / deluge valves where applicable, backflow prevention assemblies, strainers, filters, restricted orifices, and related accessible components listed on the attached Scope of Work.');
+        out+=blank+para(serviceReport)+blank;
+        out+=bullet('Isolate, drain, and open the selected valve or component where required for internal access');
+        out+=bullet('Inspect accessible clappers, checks, seats, seals, relief components, waterways, strainers, filters, and restricted openings for wear, corrosion, scale, debris, free movement, or damage');
+        out+=bullet('Clean accessible internal surfaces and components where cleaning is part of the selected service');
+        out+=bullet('Reassemble, restore trim and valve positions, refill the system, and verify the component is returned to service');
+        out+=blank+lead('Inspection Reports - ',inspReports)+blank;
+        out+=para('Replacement gaskets, rubber parts, trim components, valve repair kits, and other parts are included only when specifically listed on the Scope of Work. Additional repair work requires customer authorization.');
+      }
+
+      if(hasGroup('fiveFlow')){
+        out+=pageBreak+heading('5-Year Water-Based System Tests')+blank;
+        out+=lead('Scope - ','SLS will perform the selected five-year tests listed on the attached Scope of Work. Each test will be limited to the system components selected in this Agreement and the accessible test connections available at the property.');
+        out+=blank+para(serviceReport)+blank;
+        if(has('i5Fdc')) out+=bullet('Fire Department Connection: hydrostatically test the selected piping from the FDC toward the fire department check valve using the applicable procedure and test pressure for the system / adopted standard, then restore the connection to service');
+        if(has('i5Standpipe')) out+=bullet('Standpipe: conduct the selected flow test at the applicable remote hose connection(s), recording available flow and pressure information');
+        if(has('i5Prv')) out+=bullet('Pressure-Reducing Valves: conduct the selected full-flow test and record inlet / outlet pressures for comparison with available prior or design information');
+        if(has('i5Hydrant')) out+=bullet('Private Fire Main / Hydrant Water Supply: conduct the selected water-supply flow test and document available static, residual, and flow information as applicable to the test setup');
+        if(has('i5Gauge')) out+=bullet('System Gauges: remove and replace or calibrate the selected gauges where included on the Scope of Work; replacement gauges are billed separately unless listed as parts in this Agreement');
+        out+=blank+lead('Inspection Reports - ',inspReports)+blank;
+        out+=para('Water supply limitations, unavailable test headers, drainage constraints, traffic control, permits, fire department staffing, and specialty flow equipment outside the listed scope may require additional charges.');
+      }
+
+      if(hasGroup('obstruction')){
+        out+=pageBreak+heading('Obstruction Investigation / Flushing')+blank;
+        out+=lead('Scope - ','SLS will perform the selected obstruction investigation and/or flushing services listed on the attached Scope of Work. This work is intended to further evaluate or remove foreign material when system history, test results, or an internal piping assessment indicates a possible obstruction condition.');
+        out+=blank+para(serviceReport)+blank;
+        if(has('iObstruction')){
+          out+=bullet('Open selected system locations to examine the extent and distribution of suspected foreign material or corrosion products');
+          out+=bullet('Document findings and identify piping sections or components requiring cleaning, flushing, repair, or replacement');
+        }
+        if(has('iFlush')){
+          out+=bullet('Flush the selected system, main, cross-main, or branch-line piping using available drain / discharge points and site-approved water-disposal methods');
+          out+=bullet('Restore valves and piping after flushing and return the system to normal service condition');
+        }
+        out+=blank+lead('Inspection Reports - ',inspReports)+blank;
+        out+=para('Replacement of deteriorated pipe, sprinklers, fittings, valves, or other damaged components is excluded unless specifically listed. Water containment, remediation, and extraordinary disposal requirements are also excluded unless stated in Special Provisions.');
+      }
+
+      if(hasGroup('icePlug')){
+        out+=pageBreak+heading('Ice Plug Investigation')+blank;
+        out+=lead('Scope - ','SLS will test and investigate the dry-pipe and/or pre-action fire sprinkler system(s) serving freezer, cooler, and other refrigerated or unheated areas listed on the attached Scope of Work for ice obstruction (ice plugs) within the system piping, low points, and valve trim.');
+        out+=blank+para(serviceReport)+blank;
+        out+=lead('Testing & Investigation - ','Work will be coordinated as a planned impairment. The affected system will be placed in test condition, opened at the accessible points required for the investigation, and returned to service on completion.');
+        out+=bullet('Verify the dry-pipe valve room and refrigerated-area piping are maintained at the required temperature and record the readings');
+        out+=bullet('Internally inspect the dry-pipe or pre-action valve, priming chamber, and valve trim for ice formation');
+        out+=bullet('Open, drain, and clear each accessible low point and drum drip and verify that each drains freely');
+        out+=bullet('Check the air supply, air pressure maintenance device (compressor), and air dryer for moisture carry-over into the system');
+        out+=bullet('Inspect accessible piping, fittings, hangers, and sprinklers in refrigerated spaces for frost, ice build-up, leakage, and physical damage');
+        out+=bullet('Verify the pitch and drainage of piping serving the refrigerated area');
+        out+=bullet('Perform a main drain test and record static and residual pressures');
+        out+=bullet('Restore the system to service, verify normal air and water pressures, and confirm normal valve positions');
+        out+=bullet('Document any ice obstruction, blocked low point, or condition requiring corrective action');
+        out+=blank+lead('Inspection Reports - ',inspReports)+blank;
+        out+=para('Note: Removal of ice plugs, thawing, pipe or fitting replacement, heat tracing, air dryer or compressor repairs, insulation work, and any corrective work identified during the investigation are excluded unless specifically listed on the Scope of Work or Special Provisions.');
+      }
+
+      if(hasGroup('restore')){
+        out+=pageBreak+heading('System Drain, Refill & Return to Service')+blank;
+        out+=lead('Scope - ','SLS will provide the selected system drain, refill, reset, and return-to-service labor associated with the internal inspection work.');
+        out+=bullet('Coordinate system impairment and verify the affected control valve is placed in the required test / closed position');
+        out+=bullet('Drain the affected system using available drains and approved discharge locations');
+        out+=bullet('Refill and vent the system as applicable, restore normal valve positions, and check accessible opened components for leakage');
+        out+=bullet('Restore supervisory / alarm conditions and advise the customer representative when the system is returned to service');
+        out+=blank+lead('Inspection Reports - ',inspReports);
+      }
+
+      if(hasGroup('support')){
+        out+=pageBreak+heading('Impairment / Fire Watch Support')+blank;
+        out+=lead('Scope - ','SLS will provide the selected impairment or fire-watch support hours shown on the Scope of Work. The customer remains responsible for site-specific impairment procedures, notifications, staffing approvals, and Authority Having Jurisdiction requirements unless expressly assigned to SLS in the Special Provisions.');
+        out+=blank+lead('Service Documentation - ',inspReports);
+      }
+
+      if(hasGroup('tank')){
+        out+=pageBreak+heading('Water Storage Tank Interior Inspection')+blank;
+        out+=lead('Scope - ','SLS will perform the selected interior inspection of the water storage tank(s) listed on the attached Scope of Work. Steel tanks without corrosion protection are inspected every three years; all other tanks every five years.');
+        out+=blank+para(serviceReport)+blank;
+        out+=bullet('Coordinate the tank impairment and any draining or dive-inspection method with the customer');
+        out+=bullet('Inspect the tank interior for pitting, corrosion, spalling, rot, coating failure, sediment, and other damage or deterioration');
+        out+=bullet('Inspect accessible interior components including the anti-vortex plate, heating components, and supports where applicable');
+        out+=bullet('Document conditions found and identify any corrective work or follow-up testing recommended');
+        out+=blank+lead('Inspection Reports - ',inspReports)+blank;
+        out+=para('Tank draining, refilling, sediment removal, coating repair, confined-space rescue standby, and diving services are excluded unless specifically listed on the Scope of Work or Special Provisions.');
+      }
+
+      if(hasGroup('sprinklerSample')){
+        out+=pageBreak+heading('Sprinkler Sample Testing')+blank;
+        out+=lead('Scope - ','SLS will remove representative sprinkler samples for the selected age-based or environment-based testing listed on the attached Scope of Work and submit them to a recognized testing laboratory.');
+        out+=blank+para(serviceReport)+blank;
+        out+=bullet('Identify the sprinkler population for each selected test (manufacture year, response type, temperature rating, or environment)');
+        out+=bullet('Impair and drain the affected system as needed, remove the required sample sprinklers, and install new replacement sprinklers');
+        out+=bullet('Refill the system, verify normal valve positions, and return the system to service');
+        out+=bullet('Ship the samples to the testing laboratory and provide the laboratory results to the customer');
+        out+=blank+lead('Inspection Reports - ',inspReports)+blank;
+        out+=para('If any sample fails, the sprinklers represented by that sample must be replaced. Replacement of the failed population is not included and will be quoted separately.');
+      }
+
+      if(hasGroup('extinguisher')){
+        out+=pageBreak+heading('Portable Fire Extinguisher Multi-Year Service')+blank;
+        out+=lead('Scope - ','SLS will perform the selected six-year maintenance and/or hydrostatic testing on the portable fire extinguishers listed on the attached Scope of Work.');
+        out+=blank+para(serviceReport)+blank;
+        if(has('e6Maint')) out+=bullet('Six-Year Maintenance: empty, internally examine, and recharge stored-pressure dry chemical and halogenated agent extinguishers, and apply the verification-of-service collar and maintenance label');
+        if(has('e12Hydro')||has('e5HydroWater')||has('e5HydroCo2')) out+=bullet('Hydrostatic Testing: empty, visually examine, hydrostatically test, dry, recharge, and label each selected extinguisher cylinder at the interval required for its type');
+        out+=bullet('Provide loaner extinguishers where required while units are out of service');
+        out+=blank+lead('Inspection Reports - ',inspReports)+blank;
+        out+=para('Extinguishers that fail examination or hydrostatic testing will be condemned and replacement units quoted separately. Recharge agent, valve parts, and replacement hoses are included only when listed on the Scope of Work.');
+      }
+
+      if(hasGroup('alarm')){
+        out+=pageBreak+heading('Fire Alarm Multi-Year Service')+blank;
+        out+=lead('Scope - ','SLS will perform the selected multi-year fire alarm services listed on the attached Scope of Work.');
+        out+=blank+para(serviceReport)+blank;
+        if(has('a2Sensitivity')) out+=bullet('Smoke Detector Sensitivity Testing: test the sensitivity of the selected smoke detectors using a listed method and document results within the manufacturer\'s range');
+        if(has('a5Battery')) out+=bullet('Battery Replacement: replace the selected sealed lead-acid batteries and verify charger operation and battery date labels');
+        if(has('a10SmokeAlarm')) out+=bullet('Smoke Alarm Replacement: replace the selected single- and multiple-station smoke alarms that have reached ten years from the date of manufacture');
+        if(has('a15Heat')) out+=bullet('Heat Detector Testing: remove and laboratory-test the selected non-restorable fixed-temperature spot heat detectors (two per hundred, minimum two) and install replacements');
+        if(has('aSmokeReplace')) out+=bullet('Smoke Detector Replacement: replace the selected system smoke detectors that have reached the manufacturer\'s published service life');
+        if(has('aCoReplace')) out+=bullet('CO Detector Replacement: replace the selected carbon monoxide detectors or alarms that have reached end of life');
+        out+=bullet('Coordinate central station and building notifications before and after testing');
+        out+=blank+lead('Inspection Reports - ',inspReports)+blank;
+        out+=para('If heat detector samples fail, additional detectors must be tested or replaced; that work will be quoted separately. Programming changes and device replacements not listed on the Scope of Work are excluded.');
+      }
+
+      if(t.parts.length){
+        out+=pageBreak+heading('Parts & Materials')+blank;
+        out+=lead('Scope - ','SLS will furnish the parts and materials specifically listed on the attached Scope of Work in the quantities shown. Parts are intended for use in connection with the selected internal inspection / testing services.');
+        t.parts.forEach(p=>{out+=bullet(`${p.qty} - ${p.desc}`);});
+        out+=blank+para('Installation labor is included only to the extent covered by a selected service line or specifically stated in the Special Provisions. Additional parts or repairs discovered during disassembly or testing require customer authorization before proceeding.');
+      }
+
+      const custom=t.services.filter(s=>s.group==='custom');
+      if(custom.length){
+        out+=pageBreak+heading('Other Internal Inspection Services')+blank;
+        out+=lead('Scope - ','SLS will provide the following additional one-time services selected on the Scope of Work:');
+        custom.forEach(s=>out+=bullet(`${s.qty} - ${s.desc}`));
+        out+=blank+lead('Service Documentation - ',inspReports);
+      }
+
+      const special=internalVal('internalSpecialProvisions');
+      if(special){
+        out+=pageBreak+heading('Internal Inspection Special Provisions')+blank+para(special);
+      }
+      return out;
+    }
+
+    function internalAgreementCheckboxes(t){
+      const groups=new Set(t.services.map(s=>s.group));
+      return {
+        1:groups.has('three'),
+        2:t.services.some(s=>s.group==='fivePipe'),
+        3:groups.has('fiveValve'),
+        4:groups.has('fiveFlow'),
+        5:groups.has('obstruction'),
+        6:t.parts.length>0,
+        7:groups.has('restore'),
+        8:groups.has('support'),
+        9:Boolean(internalVal('internalSpecialProvisions')),
+        10:['custom','tank','sprinklerSample','extinguisher','alarm'].some(g=>groups.has(g))
+      };
+    }
+
+    function relabelInternalAgreementServices(xml){
+      const labels=[
+        ['Fire Alarm System Testing and Inspection','3-Year Dry / Pre-Action Internal Testing'],
+        ['Security System Testing and Inspection','5-Year Internal Piping Assessment'],
+        ['Fire Alarm System Testing and Maintenance','5-Year Valve / Component Internal Inspection'],
+        ['Fire Sprinkler System Testing and Inspection','5-Year Standpipe / FDC / PRV / Hydrant Testing'],
+        ['Smoke Detector Cleaning and Sensitivity Testing','Obstruction Investigation / Flushing'],
+        ['Backflow Preventer Testing and Inspection','Parts / Materials'],
+        ['Emergency Services','System Drain / Refill / Restoration'],
+        ['Fire Pump Testing &amp; Inspection','Impairment / Fire Watch Support'],
+        ['Special Provisions','Special Provisions'],
+        ['Portable Fire Extinguisher Test and Inspection','Other Multi-Year Services (NFPA 10 / 25 / 72)']
+      ];
+      labels.forEach(([a,b])=>{xml=xml.split(a).join(xmlEscape(b));});
+      return xml;
+    }
+
+
+    function generateInternalInspectionAgreement(){
+      try{
+        const t=internalTotals();
+        if(!t.services.length && !t.parts.length){ alert('Select at least one internal inspection service or part before generating the agreement.'); return; }
+        const repRaw=internalVal('internalRepContact');
+        const emailMatch=repRaw.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+        const custEmailMatch=internalVal('internalPhoneEmail').match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+        const dateVal=internalVal('internalProposalDate')||stampPrintDate();
+        const dp=dateVal.split('-').map(Number); const dateStr=dp.length===3?`${dp[1]}/${dp[2]}/${dp[0]}`:dateVal;
+        const addr=internalVal('internalServiceAddress'), csz=internalVal('internalCityStateZip');
+        const location=[addr,csz].filter(Boolean).join(' ');
+        const replacements={
+          CUSTOMER_NAME:internalVal('internalCustomerName'), SERVICE_ADDRESS:addr, CITY_STATE_ZIP:csz,
+          CONTACT_NAME:internalVal('internalContactName'), PHONE_EMAIL:internalVal('internalPhoneEmail'), SERVICE_LOCATION:location,
+          ANNUAL_FEE:internalMoney(t.servicePrice), PREPARED_BY:internalVal('internalPreparedBy'), REP_TITLE:'Fire Life Safety Representative',
+          REP_EMAIL:emailMatch?emailMatch[0]:repRaw, PROPOSAL_DATE:dateStr, CUST_PRINT_NAME:internalVal('internalContactName'),
+          CUST_EMAIL:custEmailMatch?custEmailMatch[0]:'', FA_COUNT:'', FA_FREQ_NOTE:'', PUMP_COUNT:'', PUMP_FREQ_NOTE:'', EXT_COUNT:'', EXT_FREQ_NOTE:''
+        };
+        const bytes=b64ToBytes(AGREEMENT_TEMPLATE_B64);
+        const entries=parseZip(bytes);
+        const docEntry=entries.find(e=>e.name==='word/document.xml');
+        if(!docEntry||docEntry.method!==0) throw new Error('template document.xml missing or compressed');
+        let xml=new TextDecoder().decode(docEntry.raw);
+        xml=revealAgreementFrequencyCounts(xml);
+        if(t.reporting>0) xml=insertAgreementReportingFeeNotice(xml,t.reporting);
+        Object.entries(replacements).forEach(([k,v])=>{xml=xml.split(`[[${k}]]`).join(xmlEscape(v));});
+        const checks=internalAgreementCheckboxes(t);
+        for(let i=1;i<=10;i++) xml=xml.replace(`[[CHK_${i}]]`,checks[i]?'<w:checked/>':'');
+        xml=relabelInternalAgreementServices(xml);
+
+        // Remove the standard inspection description pages; this agreement receives only selected internal-inspection pages.
+        xml=internalRemoveBlock(xml,'Fire Alarm System Testing &amp; Inspection','Fire Pump Testing and Inspection Services',false);
+        xml=internalRemoveBlock(xml,'Fire Pump Testing and Inspection Services','Portable Fire Extinguishers',false);
+        xml=internalRemoveBlock(xml,'Portable Fire Extinguishers','quantity noted on the Equipment List',true);
+        xml=injectBeforeSpecialProvisions(xml,internalAgreementDescriptions(t),agreementDescriptionParts().pageBreak);
+        // agreementEquipmentRows() does not exist in this build; the Scope of Work
+        // table is rebuilt at the marker by replaceAgreementScopeTable(), the same
+        // helper the inspection agreement uses.
+        xml=replaceAgreementScopeTable(xml,internalAgreementScopeItems(t));
+
+        xml=xml.split('Inspection Service Agreement').join('Internal Inspection Service Agreement');
+        xml=xml.split('Equipment List').join('Scope of Work');
+        xml=xml.split('Annual Fee:  All for the annual sum of ').join('Total service fees: All services included in this Agreement will be provided for the total price of ');
+        xml=xml.split(' plus applicable taxes').join(' plus applicable taxes');
+        xml=replaceInternalAgreementParagraph(xml,'Period of Agreement:','Service Term: This Agreement covers the one-time internal inspection, testing, parts, and related services described in the attached Scope of Work. Service begins upon customer authorization and concludes when the selected work and associated reporting are completed, unless otherwise stated in the Special Provisions.');
+        xml=replaceInternalAgreementParagraph(xml,'CUSTOMER shall pay or cause to be paid to SLS the full price','1. CUSTOMER shall pay SLS the full price for the one-time Services specified on the first page of this Agreement. SLS will invoice in accordance with the accepted proposal or upon completion of the selected Services unless otherwise stated in the Special Provisions. Payment is due within fifteen (15) days of the Invoice Date.');
+        xml=replaceInternalAgreementParagraph(xml,'SLS may adjust the annual price of this Agreement periodically','2. Changes in scope, additional system conditions, access requirements, repairs, parts, fire-watch support, after-hours work, or services not specifically listed in this Agreement require customer authorization and may result in additional charges.');
+        xml=replaceInternalAgreementParagraph(xml,'Following the initial term of this Agreement','3. This is a one-time service Agreement and does not automatically renew. Recurring inspection or maintenance services require a separate written agreement.');
+        xml=xml.split('amount of the annual service charge of this Agreement').join('amount of the total service charge of this Agreement');
+        xml=xml.replace(/<w:pgMar\b[^>]*\/>/g,'<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>');
+        xml=compactAgreementFirstPage(xml);
+        xml=formatAgreementScopeOfWork(xml);
+        const newData=new TextEncoder().encode(xml);
+        docEntry.raw=newData; docEntry.method=0; docEntry.compSize=newData.length; docEntry.uncompSize=newData.length; docEntry.crc=crc32(newData);
+        const out=buildZip(entries);
+        const blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+        const link=document.createElement('a'); link.href=URL.createObjectURL(blob);
+        const safeName=(internalVal('internalCustomerName')||'Customer').replace(/[\\/:*?"<>|]+/g,'').trim();
+        link.download=`Internal Inspection Agreement - ${safeName}.docx`;
+        document.body.appendChild(link); link.click(); link.remove(); setTimeout(()=>URL.revokeObjectURL(link.href),5000);
+      }catch(err){ alert('Could not generate the internal inspection agreement: '+err.message); console.error(err); }
+    }
+
+    function printInternalQuote(){
+      document.body.classList.add('print-internal-quote');
+      const cleanup=()=>document.body.classList.remove('print-internal-quote');
+      window.addEventListener('afterprint',cleanup,{once:true});
+      window.print(); setTimeout(cleanup,1000);
+    }
+
+    /* ===== Start-up ===== */
+    renderSystemGrid();
+    renderInternalCatalogs();
+    wireInputs();
+    $('internalProposalDate').value=stampPrintDate();
+    updateInternalTool();
+
+    $('internalResetFiveYear').addEventListener('click',()=>{
+      internalFiveYearManual=false;
+      const estimate=syncInspectionFiveYearLine(true);
+      if(estimate.systems>0) $('int-sel-i5InspectionAuto').checked=true;
+      updateInternalTool();
+    });
+    $('generateInternalAgreement').addEventListener('click',generateInternalInspectionAgreement);
+    $('generateInternalAgreementTop').addEventListener('click',generateInternalInspectionAgreement);
+    $('clearInternalSelections').addEventListener('click',clearInternalSelections);
+    $('printInternalQuote').addEventListener('click',printInternalQuote);
+    $('printInternalQuoteTop').addEventListener('click',printInternalQuote);
+    $('saveRateCard').addEventListener('click',saveRates);
+    $('loadAccount').addEventListener('click',()=>loadAccount($('accountSelect').value));
+    $('saveInternalQuote').addEventListener('click',()=>saveInternalQuote(false));
+    $('saveInternalQuoteNew').addEventListener('click',()=>saveInternalQuote(true));
+    $('loadInternalQuote').addEventListener('click',loadInternalQuote);
+
+    serverCall('getBootstrap').then(boot=>{
+      rateCard=boot.rateCard||{};
+      if(Object.keys(rateCard).length){
+        const state=captureState();
+        applyState({...state, fields:Object.fromEntries(Object.entries(state.fields).filter(([id])=>!/^int-(tech|hrs|add|psell|pcost)-/.test(id)))});
+      }
+      accountSummaries=boot.accounts||[];
+      internalQuoteSummaries=boot.internalQuotes||[];
+      renderAccountList();
+      renderInternalQuoteList();
+      setStatus('accountStatus',accountSummaries.length?`${accountSummaries.length} inspection accounts available.`:'No inspection accounts saved yet.');
+      if(INITIAL_ACCOUNT_ID) loadAccount(INITIAL_ACCOUNT_ID);
+    }).catch(err=>setStatus('accountStatus',`Could not reach the shared database: ${err.message}`,'warning'));
+</script>
